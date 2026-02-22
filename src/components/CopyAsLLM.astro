@@ -1,0 +1,152 @@
+---
+/**
+ * Copy-as-LLM dropdown component.
+ * Adds a "Copy for AI" button to doc pages that lets users:
+ * 1. Copy the page content as clean Markdown
+ * 2. Open in ChatGPT with page content as context
+ * 3. Open in Claude with page content as context
+ */
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<div class="copy-as-llm">
+  <div class="dropdown">
+    <button class="dropdown-trigger" aria-expanded="false" aria-haspopup="true">
+      Copy for AI &#9662;
+    </button>
+    <div class="dropdown-menu" role="menu" hidden>
+      <button role="menuitem" data-action="copy-markdown">
+        Copy as Markdown
+      </button>
+      <a role="menuitem" data-action="open-chatgpt" href="#" target="_blank" rel="noopener">
+        Open in ChatGPT
+      </a>
+      <a role="menuitem" data-action="open-claude" href="#" target="_blank" rel="noopener">
+        Open in Claude
+      </a>
+    </div>
+  </div>
+</div>
+
+<script define:vars={{ title }}>
+  document.addEventListener('DOMContentLoaded', () => {
+    const container = document.querySelector('.copy-as-llm');
+    if (!container) return;
+
+    const trigger = container.querySelector('.dropdown-trigger');
+    const menu = container.querySelector('.dropdown-menu');
+    const copyBtn = container.querySelector('[data-action="copy-markdown"]');
+    const chatgptLink = container.querySelector('[data-action="open-chatgpt"]');
+    const claudeLink = container.querySelector('[data-action="open-claude"]');
+
+    function getPageMarkdown() {
+      const content = document.querySelector('[data-pagefind-body]') ||
+                      document.querySelector('main') ||
+                      document.querySelector('article');
+      if (!content) return '';
+
+      const clone = content.cloneNode(true);
+      // Remove nav, scripts, styles
+      clone.querySelectorAll('nav, script, style, .copy-as-llm').forEach(el => el.remove());
+      return `# ${title}\n\n${clone.textContent.trim()}`;
+    }
+
+    trigger.addEventListener('click', () => {
+      const expanded = trigger.getAttribute('aria-expanded') === 'true';
+      trigger.setAttribute('aria-expanded', !expanded);
+      menu.hidden = expanded;
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!container.contains(e.target)) {
+        trigger.setAttribute('aria-expanded', 'false');
+        menu.hidden = true;
+      }
+    });
+
+    copyBtn.addEventListener('click', () => {
+      const md = getPageMarkdown();
+      navigator.clipboard.writeText(md).then(() => {
+        copyBtn.textContent = 'Copied!';
+        setTimeout(() => { copyBtn.textContent = 'Copy as Markdown'; }, 1500);
+      });
+      menu.hidden = true;
+    });
+
+    chatgptLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      const md = getPageMarkdown();
+      const url = `https://chatgpt.com/?q=${encodeURIComponent(md)}`;
+      window.open(url, '_blank');
+      menu.hidden = true;
+    });
+
+    claudeLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      const md = getPageMarkdown();
+      const url = `https://claude.ai/new?q=${encodeURIComponent(md)}`;
+      window.open(url, '_blank');
+      menu.hidden = true;
+    });
+  });
+</script>
+
+<style>
+  .copy-as-llm {
+    position: relative;
+    display: inline-block;
+    margin: 1rem 0;
+  }
+
+  .dropdown-trigger {
+    background: var(--sl-color-bg-nav);
+    color: var(--sl-color-text);
+    border: 1px solid var(--sl-color-gray-5);
+    padding: 0.4rem 0.8rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-family: inherit;
+  }
+
+  .dropdown-trigger:hover {
+    border-color: var(--sl-color-text-accent);
+  }
+
+  .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 10;
+    background: var(--sl-color-bg-nav);
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 4px;
+    margin-top: 0.25rem;
+    min-width: 180px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .dropdown-menu button,
+  .dropdown-menu a {
+    display: block;
+    width: 100%;
+    padding: 0.5rem 0.8rem;
+    text-align: left;
+    background: none;
+    border: none;
+    color: var(--sl-color-text);
+    font-size: 0.85rem;
+    font-family: inherit;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .dropdown-menu button:hover,
+  .dropdown-menu a:hover {
+    background: var(--sl-color-gray-6);
+  }
+</style>

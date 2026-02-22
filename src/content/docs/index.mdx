@@ -1,0 +1,47 @@
+---
+title: WireLog
+description: Headless analytics for agents and LLMs. Events in, Markdown out.
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+WireLog is headless analytics for AI agents and LLMs. Track events with HTTP. Query with pipes. Get Markdown back.
+
+No dashboards. Your agent is the dashboard.
+
+## How it works
+
+1. **Ingest events** via `POST /track` — any language, any framework
+2. **Query with pipes** — `signup | last 7d | count by day`
+3. **Get Markdown back** — tables your agent can read and reason over
+
+## Quick example
+
+```bash
+# Track an event
+curl -X POST https://wirelog.ai/track \
+  -H "X-API-Key: pk_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"event_type":"signup","user_id":"u_123"}'
+
+# Query it
+curl -X POST https://wirelog.ai/query \
+  -H "X-API-Key: sk_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"q":"signup | last 7d | count by day"}'
+```
+
+<CardGrid>
+  <Card title="Quickstart" icon="rocket">
+    Get tracking in 5 minutes. [Start here →](/quickstart)
+  </Card>
+  <Card title="Query Language" icon="magnifier">
+    Pipe DSL reference with examples. [Learn queries →](/query-language/overview)
+  </Card>
+  <Card title="For Agents" icon="laptop">
+    MCP server, Claude Code skills, agent patterns. [Agent setup →](/agents/overview)
+  </Card>
+  <Card title="Pricing" icon="approve-check">
+    10M events free. $5/million after. [See pricing →](/reference/pricing)
+  </Card>
+</CardGrid>

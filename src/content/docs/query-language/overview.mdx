@@ -1,0 +1,79 @@
+---
+title: Query Language Overview
+description: WireLog's source-first, pipe-composed DSL for analytics queries.
+---
+
+WireLog uses a source-first, pipe-composed DSL:
+
+```
+source | stage | stage | ...
+```
+
+## Important: Discover event names first
+
+Event names are NOT hardcoded keywords. `page_view`, `signup`, `purchase` are examples only. Always discover your project's event names before writing queries:
+
+```
+* | last 30d | count by event_type | top 20
+```
+
+Full inventory:
+
+```
+* | last 90d | count by event_type | sort event_type asc | limit 10000
+```
+
+## Sources
+
+| Source | Syntax | Description |
+|---|---|---|
+| Event | `<event_name>` | Filter by event type |
+| All events | `*` | All event types |
+| Funnel | `funnel a -> b -> c` | Multi-step conversion |
+| Retention | `retention <event>` | Cohort retention |
+| Paths | `paths from <event>` | User flow paths |
+| Sessions | `sessions` | Session analytics |
+| User timeline | `user "id"` | Single user's events |
+| Users directory | `users` | User profiles |
+| Formula | `formula count(a) / count(b)` | Computed metrics |
+
+See [Sources](/query-language/sources) for full details.
+
+## Stages
+
+| Stage | Example | Description |
+|---|---|---|
+| Filter | `\| where field = "value"` | Filter rows |
+| Time range | `\| last 7d` | Restrict time window |
+| Aggregation | `\| count by day` | Aggregate data |
+| List | `\| list` | Return raw rows |
+| Sort | `\| sort field desc` | Order results |
+| Limit | `\| limit 100` | Cap result count |
+
+See [Stages](/query-language/stages) for full details.
+
+## Quick examples
+
+```
+signup | last 7d | count by day
+funnel signup -> activate -> purchase | last 30d
+retention signup | last 90d
+users | where email_domain = "acme.org" | list
+user "alice@acme.org" | last 90d | list
+formula count(purchase) / count(signup) | last 30d
+```
+
+## Request format
+
+```json
+{"q": "signup | last 7d | count by day", "format": "llm"}
+```
+
+Output formats: `llm` (default, Markdown), `json`, `csv`.
+
+## Next
+
+- [Sources](/query-language/sources) — all source types in detail
+- [Stages](/query-language/stages) — filters, aggregations, time ranges
+- [Fields](/query-language/fields) — core fields, system fields, properties, profile access
+- [Examples](/query-language/examples) — annotated real-world queries

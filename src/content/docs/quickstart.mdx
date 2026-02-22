@@ -1,0 +1,68 @@
+---
+title: Quickstart
+description: Get WireLog tracking running in 5 minutes.
+---
+
+## 1. Sign up
+
+Go to [wirelog.ai](https://wirelog.ai) and sign in with GitHub. This creates your account and default organization.
+
+## 2. Create a project
+
+From the dashboard, click **+ New Project** and name it (e.g., `my-app`). You'll get two keys:
+
+- **Public key** (`pk_...`): Safe for client-side code. Can only ingest events.
+- **Secret key** (`sk_...`): Full access (track + query). Keep server-side only.
+
+## 3. Track your first event
+
+```bash
+curl -X POST https://wirelog.ai/track \
+  -H "X-API-Key: pk_YOUR_PUBLIC_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"event_type":"test_event","user_id":"quickstart_user"}'
+```
+
+Response: `{"accepted": 1}`
+
+## 4. Query it back
+
+```bash
+curl -X POST https://wirelog.ai/query \
+  -H "X-API-Key: sk_YOUR_SECRET_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"q":"* | last 1d | count by event_type"}'
+```
+
+You'll get a Markdown table with your event counts.
+
+## 5. Add the JS SDK (optional)
+
+For browser tracking, add the script tag to your HTML:
+
+```html
+<script src="https://wirelog.ai/public/wirelog.js"
+        data-key="pk_YOUR_PUBLIC_KEY"
+        data-host="https://wirelog.ai"></script>
+```
+
+This auto-tracks page views and manages device/session IDs.
+
+## 6. Set up identity (recommended)
+
+When a user logs in, call identify to bind their device to their user ID:
+
+```bash
+curl -X POST https://wirelog.ai/identify \
+  -H "X-API-Key: pk_YOUR_PUBLIC_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":"alice@acme.org","device_id":"dev_abc","user_properties":{"email":"alice@acme.org"}}'
+```
+
+This enables identity-stitched analytics across anonymous and known sessions.
+
+## Next steps
+
+- [Query language overview](/query-language/overview) — learn the pipe DSL
+- [Agent setup](/agents/overview) — connect your AI agent to WireLog
+- [SaaS metrics guide](/guides/saas-metrics) — funnels, retention, segmentation recipes
