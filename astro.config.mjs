@@ -10,13 +10,9 @@ export default defineConfig({
       description:
         "Headless analytics for agents and LLMs. Events in, Markdown out.",
       plugins: [starlightLlmsTxt()],
-      social: [
-        {
-          icon: "github",
-          label: "GitHub",
-          href: "https://github.com/wirelogai",
-        },
-      ],
+      social: {
+        github: "https://github.com/wirelogai",
+      },
       sidebar: [
         {
           label: "Getting Started",
