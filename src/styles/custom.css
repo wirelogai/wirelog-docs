@@ -136,9 +136,17 @@ aside {
 
 /* --- Sidebar --- */
 nav.sidebar a[aria-current="page"],
-.sidebar-content a[aria-current="page"] {
-  color: #00ff88;
+.sidebar-content a[aria-current="page"],
+[data-pagefind-body] ~ * a[aria-current="page"],
+starlight-menu-button ~ * a[aria-current="page"] {
+  color: #000000 !important;
   font-weight: 600;
+}
+
+/* Starlight uses accent bg on active sidebar links — force black text for contrast */
+.sidebar-content a[aria-current="page"] .link-text,
+nav a[aria-current="page"] {
+  color: #000000 !important;
 }
 
 /* --- Asides/callouts --- */
