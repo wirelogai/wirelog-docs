@@ -34,9 +34,9 @@ export default defineConfig({
           label: "Tracking",
           items: [
             { label: "HTTP API", slug: "tracking/http-api" },
-            { label: "JS SDK", slug: "tracking/js-sdk" },
+            { label: "Script Tag", slug: "tracking/script-tag" },
+            { label: "TypeScript Client", slug: "tracking/typescript-client" },
             { label: "Python Client", slug: "tracking/python-client" },
-            { label: "Node.js Client", slug: "tracking/node-client" },
           ],
         },
         {

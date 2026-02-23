@@ -136,7 +136,7 @@ Session-level analytics. Groups events by `session_id` and computes per-session 
 sessions
 ```
 
-**Description:** Aggregates events into sessions (grouped by `session_id` + `distinct_id`). Default output: session count, average duration (seconds), and average events per session, grouped by day. Requires events to have `session_id` set (the JS SDK sets this automatically with a 30-minute inactivity timeout).
+**Description:** Aggregates events into sessions (grouped by `session_id` + `distinct_id`). Default output: session count, average duration (seconds), and average events per session, grouped by day. Requires events to have `session_id` set (the Script Tag and TypeScript client set this automatically with a 30-minute inactivity timeout).
 
 Supports time granularity grouping (`| count by day`, `| count by week`).
 

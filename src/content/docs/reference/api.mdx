@@ -16,7 +16,7 @@ No authentication required.
 | `GET` | `/auth/github` | GitHub OAuth initiation |
 | `GET` | `/auth/github/cb` | GitHub OAuth callback |
 | `POST` | `/auth/logout` | Destroy session |
-| `GET` | `/public/*` | Static assets (JS SDK, CSS) |
+| `GET` | `/public/*` | Static assets (Script Tag, CSS) |
 | `GET` | `/llms.txt` | LLM-readable site summary |
 
 ---
@@ -101,7 +101,7 @@ Run a pipe DSL query.
 
 ```json
 {
-  "q": "event_type = \"page_view\" | last 7d | count by _browser",
+  "q": "page_view | last 7d | count by _browser",
   "format": "llm",
   "limit": 100,
   "offset": 0

@@ -1,0 +1,265 @@
+---
+title: "TypeScript Client"
+description: "Zero-dependency TypeScript analytics client for browsers and Node.js."
+---
+
+Zero runtime dependencies. Uses native `fetch` and Web Crypto. Full TypeScript types. ESM and CJS exports. Works in Node 18+ and all modern browsers.
+
+## Install
+
+```bash
+npm install wirelog
+```
+
+## Quick start (singleton)
+
+The recommended pattern: import the `wl` singleton, init once, use everywhere.
+
+```ts
+import { wl } from "wirelog";
+
+wl.init({ apiKey: "pk_your_public_key" });
+
+wl.track({ event_type: "signup", user_id: "u_123", event_properties: { plan: "free" } });
+
+wl.identify({ user_id: "alice@acme.org", user_properties: { plan: "pro" } });
+
+// All subsequent track() calls include user_id automatically
+wl.track({ event_type: "checkout", event_properties: { amount: 42 } });
+```
+
+If you call `track()`, `identify()`, or `query()` before `init()`, the client logs a `console.warn` and no-ops.
+
+---
+
+## Browser identity
+
+In browsers, the client automatically manages identity using the same localStorage keys as the [Script Tag](/tracking/script-tag):
+
+| Storage | Key | Persistence |
+|---|---|---|
+| `device_id` | `wl_did` in localStorage | Permanent until `reset()` |
+| `session_id` | In-memory | Regenerated after 30 minutes of inactivity |
+| `user_id` | `wl_uid` in localStorage | Set via `identify()`, cleared via `reset()` |
+
+Every `track()` call in the browser auto-injects `device_id`, `session_id`, and `user_id`. You don't need to pass them.
+
+### Using with the Script Tag
+
+Both the TypeScript client and the [Script Tag](/tracking/script-tag) read and write the same `wl_did` and `wl_uid` localStorage keys. This means:
+
+- The Script Tag handles automatic `page_view` tracking, batching, and `sendBeacon` delivery
+- The TypeScript client handles typed, explicit event tracking in your React/Vue/Svelte app
+- **Identity is shared.** Calling `identify()` from either SDK persists the `user_id` for both
+
+```ts
+// Your React app -- the script tag already set up device_id via localStorage
+import { wl } from "wirelog";
+
+wl.init({ apiKey: "pk_your_public_key" });
+
+// device_id and session_id are auto-injected, user_id too if identify() was called
+wl.track({ event_type: "feature_used", event_properties: { feature: "export" } });
+```
+
+In Node.js, `device_id`, `session_id`, and browser identity are not applicable. Pass `user_id` explicitly on each `track()` call.
+
+---
+
+## Explicit instances
+
+For server-side Node.js, multiple projects, or test isolation, create instances directly:
+
+```ts
+import { WireLog } from "wirelog";
+
+const client = new WireLog({ apiKey: "sk_your_secret_key" });
+
+await client.track({ event_type: "invoice.paid", user_id: "u_123", event_properties: { amount: 99 } });
+
+const result = await client.query("invoice.paid | last 7d | count by day");
+console.log(result);
+```
+
+---
+
+## Types
+
+```ts
+interface WireLogConfig {
+  apiKey?: string;
+  host?: string;    // Defaults to https://api.wirelog.ai
+}
+
+interface TrackEvent {
+  event_type: string;        // Required
+  user_id?: string;
+  device_id?: string;
+  session_id?: string;
+  time?: string;             // RFC 3339. Auto-generated if omitted
+  event_properties?: Record<string, unknown>;
+  user_properties?: Record<string, unknown>;
+  insert_id?: string;        // Auto-generated if omitted
+}
+
+interface TrackResult {
+  accepted: number;
+}
+
+interface IdentifyParams {
+  user_id: string;           // Required
+  device_id?: string;
+  user_properties?: Record<string, unknown>;
+  user_property_ops?: {
+    $set?: Record<string, unknown>;
+    $set_once?: Record<string, unknown>;
+    $add?: Record<string, number>;
+    $unset?: string[];
+  };
+}
+
+interface IdentifyResult {
+  ok: boolean;
+}
+
+interface QueryOptions {
+  format?: "llm" | "json" | "csv";
+  limit?: number;            // Default 100, max 10,000
+  offset?: number;
+}
+```
+
+---
+
+## Methods
+
+### init()
+
+```ts
+wl.init(config: WireLogConfig): void
+```
+
+Initialize the singleton. Call once at app startup.
+
+```ts
+wl.init({ apiKey: "pk_your_public_key" });
+```
+
+### track()
+
+```ts
+wl.track(event: TrackEvent): Promise<TrackResult>
+```
+
+Track a single event. Auto-generates `insert_id` and `time` if not provided. In browsers, auto-injects `device_id`, `session_id`, and `user_id`.
+
+```ts
+await wl.track({
+  event_type: "purchase",
+  user_id: "u_123",
+  event_properties: { plan: "pro", amount: 49 },
+});
+// { accepted: 1 }
+```
+
+### trackBatch()
+
+```ts
+wl.trackBatch(events: TrackEvent[]): Promise<TrackResult>
+```
+
+Track up to 2000 events in one request. In browsers, auto-injects identity per event.
+
+```ts
+await wl.trackBatch([
+  { event_type: "page_view", user_id: "u_1", event_properties: { page: "/" } },
+  { event_type: "click", user_id: "u_1", event_properties: { button: "cta" } },
+]);
+// { accepted: 2 }
+```
+
+### query()
+
+```ts
+wl.query(q: string, opts?: QueryOptions): Promise<unknown>
+```
+
+Run a pipe DSL query. Returns a Markdown string (`llm`), parsed JSON (`json`), or CSV string (`csv`).
+
+```ts
+// Markdown table (default)
+const md = await wl.query("* | last 30d | count by event_type | top 10");
+
+// JSON
+const data = await wl.query("page_view | last 7d | count", { format: "json" });
+
+// CSV with pagination
+const csv = await wl.query("* | last 90d | count by event_type", {
+  format: "csv",
+  limit: 10000,
+});
+```
+
+### identify()
+
+```ts
+wl.identify(params: IdentifyParams): Promise<IdentifyResult>
+```
+
+Bind `device_id` to `user_id` and upsert user profile properties. In browsers, persists `user_id` to localStorage so it's shared with the Script Tag.
+
+```ts
+await wl.identify({
+  user_id: "alice@acme.org",
+  user_properties: { email: "alice@acme.org" },
+  user_property_ops: {
+    $set: { plan: "enterprise" },
+    $set_once: { signup_source: "ads" },
+    $add: { login_count: 1 },
+    $unset: ["legacy_flag"],
+  },
+});
+// { ok: true }
+```
+
+### reset()
+
+Clear identity state. In browsers, generates a new `device_id` and clears the stored `user_id`. Use on logout.
+
+```ts
+wl.reset();
+```
+
+### deviceId / userId
+
+Read-only accessors for the current browser identity. Returns `null` in Node.
+
+```ts
+console.log(wl.deviceId); // "a1b2c3d4e5f6..."
+console.log(wl.userId);   // "alice@acme.org" or null
+```
+
+---
+
+## Error handling
+
+Non-2xx responses throw `WireLogError`.
+
+```ts
+import { wl, WireLogError } from "wirelog";
+
+try {
+  await wl.track({ event_type: "test" });
+} catch (e) {
+  if (e instanceof WireLogError) {
+    console.error(e.status);   // HTTP status code
+    console.error(e.message);  // "WireLog API 401: ..."
+  }
+}
+```
+
+---
+
+## Source
+
+[github.com/wirelogai/wirelog-js](https://github.com/wirelogai/wirelog-js)
