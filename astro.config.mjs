@@ -17,6 +17,7 @@ export default defineConfig({
       plugins: [starlightLlmsTxt()],
       components: {
         Footer: "./src/components/Footer.astro",
+        PageTitle: "./src/components/PageTitle.astro",
       },
       social: {
         github: "https://github.com/wirelogai",
