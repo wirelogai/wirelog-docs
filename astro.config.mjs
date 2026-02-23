@@ -9,6 +9,11 @@ export default defineConfig({
       title: "WireLog",
       description:
         "Headless analytics for agents and LLMs. Events in, Markdown out.",
+      logo: {
+        src: "./public/logo.svg",
+        alt: "WireLog",
+      },
+      favicon: "/favicon.svg",
       plugins: [starlightLlmsTxt()],
       components: {
         Footer: "./src/components/Footer.astro",
