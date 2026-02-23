@@ -75,7 +75,7 @@ Operations are applied in order: `user_properties` (as `$set`) -> `$set` -> `$se
 ### Basic identify with device binding
 
 ```bash
-curl -X POST https://wirelog.ai/identify \
+curl -X POST https://api.wirelog.ai/identify \
   -H "X-API-Key: pk_YOUR_PUBLIC_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -91,7 +91,7 @@ curl -X POST https://wirelog.ai/identify \
 ### Full property operations
 
 ```bash
-curl -X POST https://wirelog.ai/identify \
+curl -X POST https://api.wirelog.ai/identify \
   -H "X-API-Key: pk_YOUR_PUBLIC_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -109,7 +109,7 @@ curl -X POST https://wirelog.ai/identify \
 ### Profile update only (no device binding)
 
 ```bash
-curl -X POST https://wirelog.ai/identify \
+curl -X POST https://api.wirelog.ai/identify \
   -H "X-API-Key: sk_YOUR_SECRET_KEY" \
   -H "Content-Type: application/json" \
   -d '{

@@ -10,7 +10,7 @@ Headless analytics for AI agents and LLMs. Ingest events over HTTP, query with a
 ## Track an event
 
 ```bash
-$ curl -X POST https://wirelog.ai/track \
+$ curl -X POST https://api.wirelog.ai/track \
     -H "X-API-Key: pk_YOUR_PUBLIC_KEY" \
     -H "Content-Type: application/json" \
     -d '{
@@ -27,7 +27,7 @@ $ curl -X POST https://wirelog.ai/track \
 ## Query it back
 
 ```bash
-$ curl -X POST https://wirelog.ai/query \
+$ curl -X POST https://api.wirelog.ai/query \
     -H "X-API-Key: sk_YOUR_SECRET_KEY" \
     -H "Content-Type: application/json" \
     -d '{"q": "signup | last 7d | count by day", "format": "llm"}'
