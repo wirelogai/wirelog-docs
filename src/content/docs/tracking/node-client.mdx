@@ -3,4 +3,190 @@ title: "Node.js Client"
 description: "Zero-dependency TypeScript/Node.js analytics client."
 ---
 
-Content coming soon. This page will cover the zero-dependency TypeScript/Node.js client for server-side event tracking and user identification.
+Zero runtime dependencies. Uses native `fetch` (Node 18+). Full TypeScript types included. ESM and CJS exports.
+
+## Install
+
+```bash
+npm install wirelog
+```
+
+## Quick start
+
+```ts
+import { WireLog } from "wirelog";
+
+const wl = new WireLog({ apiKey: "sk_your_secret_key", host: "https://yourhost.com" });
+
+await wl.track({ event_type: "page_view", user_id: "alice" });
+
+const result = await wl.query("page_view | last 7d | count by user_id");
+console.log(result);
+```
+
+---
+
+## Constructor
+
+```ts
+new WireLog(config?: WireLogConfig)
+```
+
+```ts
+interface WireLogConfig {
+  apiKey?: string;  // Falls back to WIRELOG_API_KEY env var
+  host?: string;    // Falls back to WIRELOG_HOST env var or https://wirelog.ai
+}
+```
+
+---
+
+## Types
+
+```ts
+interface TrackEvent {
+  event_type: string;        // Required
+  user_id?: string;
+  device_id?: string;
+  session_id?: string;
+  time?: string;             // RFC 3339. Auto-generated if omitted
+  event_properties?: Record<string, unknown>;
+  user_properties?: Record<string, unknown>;
+  insert_id?: string;        // Auto-generated (randomUUID) if omitted
+}
+
+interface TrackResult {
+  accepted: number;
+}
+
+interface IdentifyParams {
+  user_id: string;           // Required
+  device_id?: string;
+  user_properties?: Record<string, unknown>;
+  user_property_ops?: {
+    $set?: Record<string, unknown>;
+    $set_once?: Record<string, unknown>;
+    $add?: Record<string, number>;
+    $unset?: string[];
+  };
+}
+
+interface IdentifyResult {
+  ok: boolean;
+}
+
+interface QueryOptions {
+  format?: "llm" | "json" | "csv";
+  limit?: number;            // Default 100, max 10,000
+  offset?: number;
+}
+```
+
+---
+
+## Methods
+
+### track()
+
+```ts
+wl.track(event: TrackEvent): Promise<TrackResult>
+```
+
+Track a single event. Auto-generates `insert_id` (`randomUUID`) and `time` (`new Date().toISOString()`) if not provided.
+
+```ts
+await wl.track({
+  event_type: "purchase",
+  user_id: "u_123",
+  event_properties: { plan: "pro", amount: 49 },
+});
+// { accepted: 1 }
+```
+
+### trackBatch()
+
+```ts
+wl.trackBatch(events: TrackEvent[]): Promise<TrackResult>
+```
+
+Track up to 2000 events in one request.
+
+```ts
+await wl.trackBatch([
+  { event_type: "page_view", user_id: "u_1", event_properties: { page: "/" } },
+  { event_type: "click", user_id: "u_1", event_properties: { button: "cta" } },
+]);
+// { accepted: 2 }
+```
+
+### query()
+
+```ts
+wl.query(q: string, opts?: QueryOptions): Promise<unknown>
+```
+
+Run a pipe DSL query. Returns a Markdown string (`llm`), parsed JSON (`json`), or CSV string (`csv`).
+
+```ts
+// Markdown table (default)
+const md = await wl.query("* | last 30d | count by event_type | top 10");
+
+// JSON
+const data = await wl.query("page_view | last 7d | count", { format: "json" });
+
+// CSV with pagination
+const csv = await wl.query("* | last 90d | count by event_type", {
+  format: "csv",
+  limit: 10000,
+});
+```
+
+### identify()
+
+```ts
+wl.identify(params: IdentifyParams): Promise<IdentifyResult>
+```
+
+Bind `device_id` to `user_id` and upsert user profile properties. No event emitted.
+
+```ts
+await wl.identify({
+  user_id: "alice@acme.org",
+  device_id: "dev_abc",
+  user_properties: { email: "alice@acme.org" },
+  user_property_ops: {
+    $set: { plan: "enterprise" },
+    $set_once: { signup_source: "ads" },
+    $add: { login_count: 1 },
+    $unset: ["legacy_flag"],
+  },
+});
+// { ok: true }
+```
+
+---
+
+## Error handling
+
+Non-2xx responses throw `WireLogError`.
+
+```ts
+import { WireLog, WireLogError } from "wirelog";
+
+const wl = new WireLog();
+
+try {
+  await wl.track({ event_type: "test" });
+} catch (e) {
+  if (e instanceof WireLogError) {
+    console.error(e.status);   // HTTP status code
+    console.error(e.message);  // "WireLog API 401: ..."
+  }
+}
+```
+
+---
+
+## Source
+
+[github.com/wirelogai/wirelog-js](https://github.com/wirelogai/wirelog-js)

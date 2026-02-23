@@ -3,4 +3,86 @@ title: "Claude Code Skills"
 description: "Install WireLog skills for Claude Code and other coding agents."
 ---
 
-Content coming soon. This page will cover installing and using WireLog skills for Claude Code and other coding agents to enable inline analytics workflows.
+SKILL.md files teach coding agents domain-specific capabilities. The agent reads the file on activation and gains knowledge of the WireLog DSL, instrumentation patterns, or project setup -- no tool registration, no API integration.
+
+**GitHub:** [github.com/wirelogai/wirelog-skills](https://github.com/wirelogai/wirelog-skills)
+
+## Available skills
+
+### wirelog (query)
+
+Teaches the agent the full pipe DSL: sources, stages, fields, identity semantics, and the discovery-first workflow. After activation, the agent can write WireLog queries, explain results, and iterate on analysis.
+
+Covers:
+- All source types (`*`, event names, `funnel`, `retention`, `paths`, `sessions`, `user`, `users`, `formula`)
+- All stages (`where`, `last`, `from/to`, `count`, `unique`, `sum`, `avg`, `list`, `sort`, `limit`, `top`, `by`)
+- All fields (`event_type`, `distinct_id`, `event_properties.KEY`, `user.KEY`, system fields)
+- Identity stitching (`distinct_id = coalesce(user_id, mapped_user_id, device_id)`)
+- Discovery-first workflow (always run `* | last 30d | count by event_type | top 20` before writing event-specific queries)
+
+### wirelog-instrument
+
+Teaches the agent how to add event tracking and user identification to code. Covers the HTTP API, JS SDK, Python, and Node.js.
+
+Covers:
+- API key types (`pk_`, `sk_`, `aat_`) and where each is safe to use
+- `POST /track` -- single events and batch
+- `POST /identify` -- device binding, profile ops (`$set`, `$set_once`, `$add`, `$unset`)
+- JS SDK setup (`<script>` tag, `wl.track()`, `wl.identify()`)
+- Server-side examples (curl, Python stdlib, Node.js fetch)
+- Recommended profile fields for B2B and B2C
+
+### wirelog-setup
+
+Teaches the agent how to set up a new WireLog project from scratch: sign up, create a project, get API keys, send a test event, verify with a query, and configure identity.
+
+## Install via Claude Code
+
+```bash
+/install-skill github.com/wirelogai/wirelog-skills
+```
+
+This installs all three skills. The agent activates the relevant skill based on context.
+
+## Manual install
+
+Copy the SKILL.md files to your project's `skills/` directory:
+
+```
+skills/
+  wirelog/SKILL.md
+  wirelog-instrument/SKILL.md
+  wirelog-setup/SKILL.md
+```
+
+The agent picks up skills from the `skills/` directory automatically.
+
+## How it works
+
+1. The agent encounters a task related to analytics (querying data, adding tracking, setting up a project).
+2. The agent reads the relevant SKILL.md file.
+3. The skill provides complete domain knowledge: syntax, API endpoints, examples, and best practices.
+4. The agent writes queries, instruments code, or sets up projects using the skill's guidance.
+
+No runtime dependency. No API keys in the skill. The skill is pure knowledge -- the agent uses it with whatever API key the user provides.
+
+## Example: agent writes a query using the wirelog skill
+
+```text
+User: "What are the top events this week?"
+
+Agent reads: skills/wirelog/SKILL.md
+Agent runs:
+  curl -X POST https://wirelog.ai/query \
+    -H "X-API-Key: sk_..." \
+    -H "Content-Type: application/json" \
+    -d '{"q": "* | last 7d | count by event_type | top 10"}'
+
+Agent returns the Markdown table to the user.
+```
+
+## Next steps
+
+- [MCP Server](/agents/mcp-server) -- tool-based integration for agents that support MCP
+- [Agent Patterns](/agents/patterns) -- daily briefings, self-tracking, anomaly detection
+- [Query language](/query-language/overview) -- full DSL reference

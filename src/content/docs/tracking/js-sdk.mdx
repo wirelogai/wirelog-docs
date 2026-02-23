@@ -3,4 +3,144 @@ title: "JS SDK"
 description: "Browser tracking with the WireLog JavaScript SDK."
 ---
 
-Content coming soon. This page will cover the WireLog JavaScript SDK for browser-based event tracking, including installation, initialization, and API reference.
+Lightweight browser SDK. No build step. Single script tag. Sends events via `sendBeacon` with XHR fallback.
+
+## Installation
+
+```html
+<script
+  src="https://yourhost.com/public/wirelog.js"
+  data-key="pk_your_public_key"
+  data-host="https://yourhost.com"
+></script>
+```
+
+### Script attributes
+
+| Attribute | Required | Description |
+|---|---|---|
+| `data-key` | Yes | Public API key (`pk_...`) |
+| `data-host` | Recommended | API base URL. Falls back to inferring from script `src` |
+| `data-consent` | No | `"true"` to require `optIn()` before any tracking |
+| `data-auto` | No | `"false"` to disable automatic `page_view` on load |
+| `data-spa` | No | `"true"` to auto-track `page_view` on SPA navigations |
+
+---
+
+## Automatic behavior
+
+- Tracks `page_view` on page load (unless `data-auto="false"`)
+- SPA mode (`data-spa="true"`) intercepts `pushState`, `replaceState`, and `popstate` to fire `page_view` on navigation
+- Auto-captured `page_view` properties: `url`, `referrer`, `title`
+
+---
+
+## Batching and delivery
+
+- Events queue locally, flush on **10 events** or every **2 seconds**
+- Uses `navigator.sendBeacon` for reliable delivery on page close; falls back to XHR if `sendBeacon` returns `false`
+- Flushes on `visibilitychange` (hidden) and `pagehide`
+
+---
+
+## Identity management
+
+| Storage | Key | Persistence |
+|---|---|---|
+| `device_id` | `wl_did` in localStorage | Permanent until `reset()` or `optOut()` |
+| `session_id` | In-memory | Regenerated after 30 minutes of inactivity |
+| `user_id` | `wl_uid` in localStorage | Set via `identify()`, cleared via `reset()` |
+
+---
+
+## Queue
+
+- Capped at **500 events**
+- On overflow, oldest events are dropped (FIFO eviction)
+
+---
+
+## API reference
+
+Available as `window.wirelog` and `window.wl`.
+
+### wl.track(eventType, eventProps?, userProps?)
+
+Track a custom event.
+
+```js
+wl.track("button_click", { button: "signup" });
+
+wl.track("purchase", { amount: 49.99, plan: "pro" }, { plan: "pro" });
+```
+
+### wl.identify(userId, userProps?, userPropOps?)
+
+Set the user ID, persist it in localStorage, and send a `POST /identify` call.
+
+```js
+wl.identify("alice@acme.org", { plan: "pro" });
+
+wl.identify("alice@acme.org", null, {
+  $set: { plan: "enterprise" },
+  $set_once: { signup_source: "organic" },
+  $add: { login_count: 1 },
+  $unset: ["legacy_flag"]
+});
+```
+
+The user ID is attached to all subsequent `track()` calls until `reset()`.
+
+### wl.reset()
+
+Clear identity state. Use on logout.
+
+```js
+wl.reset();
+```
+
+Removes `user_id`, `device_id`, and `session_id`. Generates a new `device_id`.
+
+### wl.optIn()
+
+Enable tracking and persist consent in localStorage (`wl_consent`).
+
+```js
+wl.optIn();
+```
+
+### wl.optOut()
+
+Disable tracking. Clears the event queue and all stored identifiers.
+
+```js
+wl.optOut();
+```
+
+### wl.flush()
+
+Manually flush the event queue.
+
+```js
+wl.flush();
+```
+
+---
+
+## Consent mode
+
+Set `data-consent="true"` on the script tag. No events are tracked or queued until `optIn()` is called. Consent state persists in localStorage across page loads.
+
+```html
+<script
+  src="https://yourhost.com/public/wirelog.js"
+  data-key="pk_your_key"
+  data-host="https://yourhost.com"
+  data-consent="true"
+></script>
+
+<script>
+  // After user grants consent:
+  wl.optIn();
+</script>
+```

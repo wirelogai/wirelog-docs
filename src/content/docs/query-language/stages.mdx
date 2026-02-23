@@ -1,6 +1,360 @@
 ---
-title: "Stages"
-description: "Filters, time ranges, aggregations, list, sort, and limit stages."
+title: Stages
+description: Full reference for where, time ranges, aggregations, list, sort, limit, and other pipeline stages.
 ---
 
-Content coming soon. This page will cover pipeline stages including filters, time ranges, aggregations, list, sort, and limit stages that transform query results.
+import { Aside } from '@astrojs/starlight/components';
+
+Stages are pipe-separated transformations applied after the source. They filter, aggregate, sort, and limit results.
+
+```
+source | stage | stage | ...
+```
+
+Stages are evaluated left-to-right. Order matters: `| where ... | last 7d | count by day` filters first, then restricts time, then aggregates.
+
+## where
+
+Filter rows by field conditions.
+
+**Syntax:**
+
+```
+| where <field> <operator> <value>
+| where <field> <operator> <value> AND <field> <operator> <value>
+| where <field> <operator> <value> OR <field> <operator> <value>
+```
+
+**Operators:**
+
+| Operator | Description | Example |
+|---|---|---|
+| `=` | Equals | `\| where _platform = "web"` |
+| `!=` | Not equals | `\| where _browser != "Safari"` |
+| `>` | Greater than | `\| where event_properties.amount > 100` |
+| `<` | Less than | `\| where event_properties.count < 5` |
+| `>=` | Greater than or equal | `\| where event_properties.score >= 80` |
+| `<=` | Less than or equal | `\| where event_properties.duration <= 30` |
+| `contains` | Substring match | `\| where event_properties.page contains "/blog"` |
+| `not contains` | No substring match | `\| where event_properties.url not contains "test"` |
+| `~` | Regex match | `\| where event_properties.page ~ "^/docs/.*"` |
+| `!~` | Regex not match | `\| where _browser !~ "bot"` |
+| `in` | Value in list | `\| where _platform in ("web", "android")` |
+| `not in` | Value not in list | `\| where _browser not in ("Safari", "IE")` |
+| `exists` | Field is present and non-empty | `\| where event_properties.referrer exists` |
+| `not exists` | Field is absent or empty | `\| where event_properties.error not exists` |
+
+Multiple conditions in a single `where` are combined with `AND` or `OR`. Evaluated left-to-right, no parentheses grouping. Multiple `| where` clauses are always AND-ed together.
+
+**Examples:**
+
+```
+# Simple equality
+signup | where _platform = "web" | last 7d | count
+
+# Numeric comparison (uses typed numeric bucket automatically)
+purchase | where event_properties.amount > 50 | last 30d | count
+
+# OR condition
+* | where _platform = "web" OR _platform = "android" | last 7d | count
+
+# Combined AND + OR (left-to-right evaluation)
+* | where _platform = "web" AND _browser = "Chrome" OR _browser = "Firefox" | last 7d | count
+
+# Substring match
+page_view | where event_properties.page contains "/pricing" | last 30d | count
+
+# Exists check on property maps
+* | where event_properties.error exists | last 7d | list
+
+# Profile-based filter
+* | where user.plan = "enterprise" | last 30d | count by event_type
+```
+
+<Aside type="note">
+Numeric comparisons (`>`, `<`, `>=`, `<=`) with numeric literal values automatically use the typed numeric property bucket for correctness. Non-numeric values fall back to string comparison.
+</Aside>
+
+## Time ranges
+
+Restrict the query to a time window. Without a time range, queries default to the last 7 days (event queries) or last 30 days (user queries).
+
+### Relative duration
+
+```
+| last <N><unit>
+```
+
+| Unit | Meaning | Example |
+|---|---|---|
+| `m` | Minutes | `\| last 30m` |
+| `h` | Hours | `\| last 24h` |
+| `d` | Days | `\| last 7d` |
+| `w` | Weeks | `\| last 12w` |
+
+### Absolute range
+
+```
+| from <YYYY-MM-DD> to <YYYY-MM-DD>
+| from <YYYY-MM-DDThh:mm:ss> to <YYYY-MM-DDThh:mm:ss>
+```
+
+The `from` date is inclusive, `to` is exclusive.
+
+### Shortcuts
+
+```
+| today
+| yesterday
+| this week
+| this month
+| this quarter
+| this year
+```
+
+`this week` starts on Monday. `this month` starts on the 1st. `this quarter` and `this year` start at the beginning of the current quarter/year.
+
+**Examples:**
+
+```
+# Last 24 hours
+* | last 24h | count by event_type | top 10
+
+# Specific date range
+signup | from 2026-01-01 to 2026-02-01 | count by day
+
+# This month so far
+purchase | this month | sum event_properties.amount
+
+# Today only
+* | today | count by event_type
+```
+
+## Aggregations
+
+Compute metrics over the selected data. If no aggregation stage is specified, event queries default to `| count`.
+
+### count
+
+Count rows.
+
+```
+| count
+| count by <group>, <group>, ...
+```
+
+### unique
+
+Count distinct values of a field.
+
+```
+| unique <field>
+| unique <field> by <group>, <group>, ...
+```
+
+If no field is specified, defaults to `distinct_id` (unique users) for event queries, `user_id` for users queries.
+
+### sum
+
+Sum a numeric field.
+
+```
+| sum <field>
+| sum <field> by <group>, <group>, ...
+```
+
+Field is required. Non-numeric values are ignored (NULL), not coerced to zero.
+
+### avg
+
+Average of a numeric field.
+
+```
+| avg <field>
+| avg <field> by <group>, <group>, ...
+```
+
+### min / max
+
+Minimum or maximum of a numeric field.
+
+```
+| min <field>
+| max <field>
+```
+
+### median
+
+Median (50th percentile) of a numeric field.
+
+```
+| median <field>
+| median <field> by <group>
+```
+
+### Percentiles: p90, p95, p99
+
+```
+| p90 <field>
+| p95 <field>
+| p99 <field>
+```
+
+**Examples:**
+
+```
+# Total events
+signup | last 30d | count
+
+# Unique users per week
+* | last 12w | unique distinct_id by week
+
+# Revenue by day
+purchase | last 30d | sum event_properties.amount by day
+
+# Average order value by platform
+purchase | last 30d | avg event_properties.amount by _platform
+
+# P95 response time
+api_request | last 7d | p95 event_properties.duration
+
+# Unique users by week and platform
+signup | last 12w | unique distinct_id by week, _platform
+```
+
+## Group by
+
+The `by` keyword groups aggregation results. Used inline with aggregations (`| count by day`) or as a standalone stage (`| by _platform`) for funnel/retention breakouts.
+
+### Time granularities
+
+| Granularity | Truncation | Alias |
+|---|---|---|
+| `hour` | Start of hour | `hour` |
+| `day` | Start of day | `day` |
+| `week` | Monday of the week | `week` |
+| `month` | 1st of the month | `month` |
+| `quarter` | Start of quarter | `quarter` |
+
+### Field grouping
+
+Group by any queryable field. Combine with time granularity using commas:
+
+```
+| count by day, _platform
+| unique distinct_id by week, _browser
+| sum event_properties.amount by month, user.plan
+```
+
+## list
+
+Return raw event rows instead of aggregated results.
+
+```
+| list
+```
+
+Default columns returned: `insert_id`, `event_type`, `time`, `user_id`, `device_id`, `session_id`, `event_properties`, `user_properties`, `_ip`, `_browser`, `_browser_version`, `_os`, `_os_version`, `_device_type`, `_platform`.
+
+Results are ordered by `time DESC` (most recent first). Use `| limit N` to control how many rows.
+
+**Examples:**
+
+```
+# Raw events for a specific type
+error | last 24h | list
+
+# Raw events from a user
+user "alice@acme.org" | last 7d | list
+
+# User profiles as a list
+users | where email_domain = "acme.org" | list
+```
+
+## sort
+
+Order results by a field.
+
+```
+| sort <field> desc
+| sort <field> asc
+```
+
+Default direction is `desc` if omitted. Can sort by aggregation output columns (`count`, `unique_count`, `total`, etc.) or by data fields.
+
+**Examples:**
+
+```
+# Sort by count ascending
+* | last 30d | count by event_type | sort count asc
+
+# Sort by a field
+users | list | sort last_seen desc
+```
+
+## limit / top
+
+Cap the number of result rows.
+
+```
+| limit <N>
+| top <N>
+```
+
+`top N` is shorthand for `| sort count desc | limit N` -- it sorts by the metric column descending and takes the first N rows. `limit N` only caps without reordering.
+
+Maximum value: 10,000.
+
+**Examples:**
+
+```
+# Top 20 event types by count
+* | last 30d | count by event_type | top 20
+
+# Limit raw event listing to 50 rows
+error | last 7d | list | limit 50
+
+# Top 10 browsers by unique users
+* | last 30d | unique distinct_id by _browser | top 10
+```
+
+## Funnel/retention-specific stages
+
+### window
+
+Set the funnel completion window. Only valid with `funnel` source.
+
+```
+| window <duration>
+```
+
+Default: 30 days. Duration uses the same units as `last` (`m`, `h`, `d`, `w`).
+
+### depth
+
+Set the maximum path length. Only valid with `paths` source.
+
+```
+| depth <N>
+```
+
+Default: 5 steps.
+
+### by (standalone)
+
+Breakout dimension for funnel or retention results. Not an aggregation grouping.
+
+```
+| by <field>
+| by <field>, <field>
+```
+
+**Examples:**
+
+```
+# Funnel with 7-day window, broken out by platform
+funnel signup -> activate -> purchase | last 30d | window 7d | by _platform
+
+# Paths with 8-step depth
+paths from signup | last 30d | depth 8
+```

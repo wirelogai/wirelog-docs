@@ -1,0 +1,226 @@
+/* WireLog docs theme — green-on-black terminal aesthetic.
+ * Overrides Starlight defaults to match brand identity from branding.md.
+ * Font: JetBrains Mono everywhere. Colors: #00ff88 green, #0a0a0a bg.
+ */
+
+/* --- Color tokens (dark mode is the only mode) --- */
+:root,
+:root[data-theme="light"],
+:root[data-theme="dark"] {
+  --sl-color-accent-low: #0a1f10;
+  --sl-color-accent: #00ff88;
+  --sl-color-accent-high: #b0ffd6;
+  --sl-color-white: #ffffff;
+  --sl-color-gray-1: #e0e0e0;
+  --sl-color-gray-2: #b0b0b0;
+  --sl-color-gray-3: #7a8a7a;
+  --sl-color-gray-4: #4a5a4a;
+  --sl-color-gray-5: #1d2a20;
+  --sl-color-gray-6: #111a11;
+  --sl-color-black: #000000;
+  --sl-color-bg: #000000;
+  --sl-color-bg-nav: #050505;
+  --sl-color-bg-sidebar: #050505;
+  --sl-color-hairline-light: #1d2a20;
+  --sl-color-hairline-shade: #1d2a20;
+  --sl-color-text: #e0e0e0;
+  --sl-color-text-accent: #00ff88;
+  --sl-color-text-invert: #000000;
+  --sl-color-bg-inline-code: #0a1f10;
+  --sl-color-bg-badge-default: #0a1f10;
+
+  /* Typography */
+  --sl-font: "JetBrains Mono", "Fira Code", "Courier New", monospace;
+  --sl-font-system-mono: "JetBrains Mono", "Fira Code", "Courier New", monospace;
+  --sl-text-sm: 0.85rem;
+  --sl-text-base: 0.9rem;
+  --sl-text-lg: 1rem;
+  --sl-text-2xl: 1.25rem;
+
+  /* Remove Starlight light mode */
+  color-scheme: dark;
+}
+
+/* --- Force dark mode globally --- */
+html {
+  background: #000000;
+  color-scheme: dark;
+}
+
+/* Hide the theme toggle — we're always dark */
+starlight-theme-select,
+[data-theme-toggle] {
+  display: none !important;
+}
+
+/* --- Global typography --- */
+body,
+.sl-markdown-content,
+.sl-markdown-content p,
+.sl-markdown-content li,
+.sl-markdown-content td,
+.sl-markdown-content th,
+nav,
+aside {
+  font-family: "JetBrains Mono", "Fira Code", "Courier New", monospace;
+  letter-spacing: -0.01em;
+}
+
+/* --- Headings --- */
+.sl-markdown-content h1,
+.sl-markdown-content h2,
+.sl-markdown-content h3,
+.sl-markdown-content h4 {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.sl-markdown-content h1 {
+  font-size: 1.5rem;
+  border-bottom: 1px solid #1d2a20;
+  padding-bottom: 0.5rem;
+}
+
+/* --- Links --- */
+.sl-markdown-content a {
+  color: #00ff88;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+
+.sl-markdown-content a:hover {
+  border-bottom-color: #00ff88;
+}
+
+/* --- Code blocks --- */
+.sl-markdown-content pre {
+  background: #0a0a0a !important;
+  border: 1px solid #1d2a20;
+  border-radius: 0;
+  padding: 1rem;
+}
+
+.sl-markdown-content :not(pre) > code {
+  background: #0a1f10;
+  color: #00ff88;
+  padding: 0.15em 0.35em;
+  border-radius: 2px;
+  font-size: 0.9em;
+}
+
+/* --- Tables --- */
+.sl-markdown-content table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.85rem;
+}
+
+.sl-markdown-content th {
+  background: #0a0a0a;
+  color: #00ff88;
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #1d2a20;
+  font-weight: 600;
+}
+
+.sl-markdown-content td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #0d150d;
+}
+
+.sl-markdown-content tr:hover td {
+  background: #050a05;
+}
+
+/* --- Sidebar --- */
+nav.sidebar a[aria-current="page"],
+.sidebar-content a[aria-current="page"] {
+  color: #00ff88;
+  font-weight: 600;
+}
+
+/* --- Asides/callouts --- */
+.starlight-aside {
+  border-color: #1d2a20;
+  background: #050a05;
+}
+
+.starlight-aside--tip {
+  border-color: #00ff88;
+}
+
+.starlight-aside--caution {
+  border-color: #ffaa00;
+}
+
+.starlight-aside--danger {
+  border-color: #ff6b6b;
+}
+
+/* --- Cards (Starlight components) --- */
+.card {
+  border: 1px solid #1d2a20;
+  background: #050505;
+  border-radius: 0;
+}
+
+.card:hover {
+  border-color: #00ff88;
+}
+
+/* --- Horizontal rules --- */
+.sl-markdown-content hr {
+  border-color: #1d2a20;
+}
+
+/* --- Selection --- */
+::selection {
+  background: #00ff8833;
+  color: #ffffff;
+}
+
+/* --- Scrollbar (webkit) --- */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #000000;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1d2a20;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2d3a30;
+}
+
+/* --- Hero override for landing page --- */
+.hero-section {
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.hero-section .tagline {
+  color: #7a8a7a;
+  font-size: 0.9rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* --- Badge for "New" or version labels --- */
+.badge {
+  display: inline-block;
+  background: #0a1f10;
+  color: #00ff88;
+  font-size: 0.75rem;
+  padding: 0.1em 0.5em;
+  border: 1px solid #1d2a20;
+  margin-left: 0.5em;
+  vertical-align: middle;
+}

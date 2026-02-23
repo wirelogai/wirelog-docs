@@ -3,15 +3,18 @@ title: Query Language Overview
 description: WireLog's source-first, pipe-composed DSL for analytics queries.
 ---
 
-WireLog uses a source-first, pipe-composed DSL:
+import { Aside } from '@astrojs/starlight/components';
+
+WireLog queries use a pipe-composed DSL. A source selects the data; stages transform it.
 
 ```
 source | stage | stage | ...
 ```
 
-## Important: Discover event names first
+Every query starts with a **source** (what data), then zero or more **stages** separated by `|` (how to filter, aggregate, sort).
 
-Event names are NOT hardcoded keywords. `page_view`, `signup`, `purchase` are examples only. Always discover your project's event names before writing queries:
+<Aside type="caution" title="Discover event names first">
+Event names are project-specific. `signup`, `page_view`, `purchase` are examples only. Always run a discovery query before writing event-specific queries:
 
 ```
 * | last 30d | count by event_type | top 20
@@ -22,58 +25,97 @@ Full inventory:
 ```
 * | last 90d | count by event_type | sort event_type asc | limit 10000
 ```
+</Aside>
 
 ## Sources
 
 | Source | Syntax | Description |
 |---|---|---|
-| Event | `<event_name>` | Filter by event type |
-| All events | `*` | All event types |
-| Funnel | `funnel a -> b -> c` | Multi-step conversion |
-| Retention | `retention <event>` | Cohort retention |
-| Paths | `paths from <event>` | User flow paths |
-| Sessions | `sessions` | Session analytics |
-| User timeline | `user "id"` | Single user's events |
-| Users directory | `users` | User profiles |
-| Formula | `formula count(a) / count(b)` | Computed metrics |
+| Event | `<event_name>` | Filter by `event_type` |
+| All events | `*` | All event types (leading `\|` also works) |
+| Funnel | `funnel a -> b -> c` | Multi-step conversion analysis |
+| Retention | `retention <event>` | Cohort retention over time |
+| Paths | `paths from <event>` | User flow analysis |
+| Sessions | `sessions` | Session-level analytics |
+| User timeline | `user "<id>"` | Single user's events (quoted) |
+| Users directory | `users` | Query user profiles table |
+| Formula | `formula count(a) / count(b)` | Computed metrics across event types |
 
-See [Sources](/query-language/sources) for full details.
+See [Sources](/query-language/sources/) for full reference.
 
 ## Stages
 
-| Stage | Example | Description |
+| Stage | Syntax | Description |
 |---|---|---|
-| Filter | `\| where field = "value"` | Filter rows |
-| Time range | `\| last 7d` | Restrict time window |
-| Aggregation | `\| count by day` | Aggregate data |
-| List | `\| list` | Return raw rows |
+| Filter | `\| where field = "value"` | Filter rows by condition |
+| Time range | `\| last 7d`, `\| from ... to ...`, `\| today`, `\| this month` | Restrict time window |
+| Count | `\| count`, `\| count by day` | Count events, optionally grouped |
+| Unique | `\| unique distinct_id` | Count unique values |
+| Sum / Avg | `\| sum event_properties.amount` | Numeric aggregations |
+| Min / Max | `\| min field`, `\| max field` | Extremes |
+| Median / Percentiles | `\| median field`, `\| p90 field`, `\| p95 field`, `\| p99 field` | Distribution |
+| Group by | `\| count by day, field` | Group aggregation by time or field |
+| List | `\| list` | Return raw event rows |
 | Sort | `\| sort field desc` | Order results |
-| Limit | `\| limit 100` | Cap result count |
+| Limit / Top | `\| limit 100`, `\| top 20` | Cap result count |
 
-See [Stages](/query-language/stages) for full details.
+See [Stages](/query-language/stages/) for full reference.
+
+## Request format
+
+Send queries via `POST /query` with a secret key (`sk_`) or access token (`aat_` with `query` scope):
+
+```json
+{
+  "q": "signup | last 7d | count by day",
+  "format": "llm",
+  "limit": 100,
+  "offset": 0
+}
+```
+
+| Field | Required | Default | Description |
+|---|---|---|---|
+| `q` | Yes | | Query DSL string |
+| `format` | No | `llm` | Output format: `llm` (Markdown), `json`, `csv` |
+| `limit` | No | `100` | Max rows returned (max 10,000) |
+| `offset` | No | `0` | Pagination offset |
+
+Auth header: `X-API-Key: sk_...` or `X-API-Key: aat_...`
 
 ## Quick examples
 
 ```
+# Daily signups this week
 signup | last 7d | count by day
+
+# Conversion funnel
 funnel signup -> activate -> purchase | last 30d
+
+# Weekly retention cohorts
 retention signup | last 90d
-users | where email_domain = "acme.org" | list
+
+# All events from a specific company
+* | where user.email_domain = "acme.org" | last 30d | count by event_type
+
+# Single user timeline
 user "alice@acme.org" | last 90d | list
+
+# Conversion rate as a ratio
 formula count(purchase) / count(signup) | last 30d
 ```
 
-## Request format
+## Output formats
 
-```json
-{"q": "signup | last 7d | count by day", "format": "llm"}
-```
+**`llm`** (default) -- Markdown table. Designed for LLM consumption. Includes column headers and aligned rows.
 
-Output formats: `llm` (default, Markdown), `json`, `csv`.
+**`json`** -- Array of objects. Each row is a JSON object with column names as keys.
+
+**`csv`** -- Comma-separated values with header row.
 
 ## Next
 
-- [Sources](/query-language/sources) — all source types in detail
-- [Stages](/query-language/stages) — filters, aggregations, time ranges
-- [Fields](/query-language/fields) — core fields, system fields, properties, profile access
-- [Examples](/query-language/examples) — annotated real-world queries
+- [Sources](/query-language/sources/) -- event, funnel, retention, paths, sessions, user, users, formula
+- [Stages](/query-language/stages/) -- where, time ranges, aggregations, sort, limit
+- [Fields](/query-language/fields/) -- core, system, properties, profile fields, identity
+- [Examples](/query-language/examples/) -- 15+ annotated real-world queries

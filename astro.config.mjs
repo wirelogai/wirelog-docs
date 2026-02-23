@@ -60,7 +60,7 @@ export default defineConfig({
           label: "Guides",
           items: [
             { label: "SaaS Metrics", slug: "guides/saas-metrics" },
-            { label: "Migration Guide", slug: "guides/migration" },
+            { label: "Migration", slug: "guides/migration" },
           ],
         },
         {
@@ -71,8 +71,31 @@ export default defineConfig({
           ],
         },
       ],
-      head: [],
-      customCss: [],
+      head: [
+        {
+          tag: "link",
+          attrs: {
+            rel: "preconnect",
+            href: "https://fonts.googleapis.com",
+          },
+        },
+        {
+          tag: "link",
+          attrs: {
+            rel: "preconnect",
+            href: "https://fonts.gstatic.com",
+            crossorigin: true,
+          },
+        },
+        {
+          tag: "link",
+          attrs: {
+            rel: "stylesheet",
+            href: "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap",
+          },
+        },
+      ],
+      customCss: ["./src/styles/custom.css"],
     }),
   ],
 });

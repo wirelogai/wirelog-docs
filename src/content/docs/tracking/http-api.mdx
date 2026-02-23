@@ -1,6 +1,200 @@
 ---
 title: "HTTP API"
-description: "Track events and identify users with the WireLog HTTP API."
+description: "Track events, identify users, and query analytics via HTTP."
 ---
 
-Content coming soon. This page will cover the HTTP API for tracking events and identifying users, including endpoint details, request/response formats, and authentication.
+All endpoints accept `Content-Type: application/json`. All responses are JSON unless otherwise noted.
+
+## Authentication
+
+Pass your API key via `X-API-Key` header or `key` query parameter.
+
+| Key type | Prefix | Allowed endpoints |
+|---|---|---|
+| Public key | `pk_` | `/track`, `/identify` |
+| Secret key | `sk_` | `/track`, `/identify`, `/query` |
+| Access token | `aat_` | Per-token scopes (`track`, `query`) |
+
+---
+
+## POST /track
+
+Track one or more events.
+
+### Single event
+
+```json
+{
+  "event_type": "page_view",
+  "user_id": "u_123",
+  "device_id": "d_456",
+  "session_id": "s_789",
+  "time": "2026-01-15T10:30:00Z",
+  "event_properties": { "page": "/pricing" },
+  "user_properties": { "plan": "pro" },
+  "insert_id": "dedup-key-123",
+  "library": "wirelog-python/0.1"
+}
+```
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `event_type` | string | Yes | Non-empty |
+| `user_id` | string | No | User identifier |
+| `device_id` | string | No | Anonymous device identifier |
+| `session_id` | string | No | Session identifier |
+| `time` | string | No | RFC 3339. Defaults to server time |
+| `event_properties` | object | No | Arbitrary key-value pairs |
+| `user_properties` | object | No | Arbitrary key-value pairs |
+| `insert_id` | string | No | Deduplication key. Auto-generated if omitted |
+| `library` | string | No | SDK identifier string |
+
+### Batch
+
+```json
+{
+  "events": [
+    { "event_type": "click", "event_properties": { "button": "signup" } },
+    { "event_type": "page_view", "event_properties": { "page": "/docs" } }
+  ]
+}
+```
+
+Maximum 2000 events per batch.
+
+### Response
+
+```json
+{ "accepted": 2 }
+```
+
+`accepted` is the count of events that passed validation. Invalid events are silently skipped.
+
+### Validation
+
+- `event_type` required and non-empty
+- Property count within `max_properties_count` / `max_user_props_count` limits
+- Property keys within `max_property_key_len`
+- Property values within `max_property_value_len`
+- Request body within `max_request_bytes` (413 if exceeded)
+- Batch size within `max_batch_size` (400 if exceeded)
+
+### Server-side enrichment
+
+Every event is enriched before storage:
+
+- **UA parsing**: `_browser`, `_browser_version`, `_os`, `_os_version` extracted from `User-Agent`
+- **Device type**: `_device_type` = `mobile`, `bot`, or `desktop`
+- **Platform**: `_platform` = `android`, `ios`, or `web`
+- **IP handling**: raw or anonymized per project policy
+- **Property normalization**: values split into typed buckets (string, numeric, boolean, null) for efficient querying
+- **Insert ID**: auto-generated (`evt_` + 16 random chars) if not provided
+- **Time**: parsed as RFC 3339. Falls back to server time if unparseable
+
+### Deduplication
+
+The ClickHouse `events` table uses `ReplacingMergeTree` with `ORDER BY (project_id, event_type, time, insert_id)`. Events sharing the same order key are deduplicated at merge time.
+
+---
+
+## POST /identify
+
+Bind a `device_id` to a `user_id` and upsert user profile properties. No event is emitted.
+
+```json
+{
+  "user_id": "alice@acme.org",
+  "device_id": "dev_abc",
+  "user_properties": {
+    "email": "alice@acme.org",
+    "plan": "pro"
+  },
+  "user_property_ops": {
+    "$set": { "plan": "enterprise" },
+    "$set_once": { "signup_source": "ads" },
+    "$add": { "login_count": 1 },
+    "$unset": ["legacy_flag"]
+  }
+}
+```
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `user_id` | string | Yes | User identifier |
+| `device_id` | string | No | Device to bind |
+| `user_properties` | object | No | Flat set (overwrites) |
+| `user_property_ops` | object | No | Granular operations |
+
+**Property operations:**
+
+| Operator | Effect |
+|---|---|
+| `$set` | Set properties (overwrite existing) |
+| `$set_once` | Set only if not already present |
+| `$add` | Increment numeric properties |
+| `$unset` | Remove properties (array of keys) |
+
+### Response
+
+```json
+{ "ok": true }
+```
+
+### Behavior
+
+- Inserts/updates a row in `device_user_map` linking `device_id` to `user_id`
+- Upserts `user_profiles` with the provided properties and operations
+- `user_properties` (flat set) and `user_property_ops` can be used together
+
+---
+
+## POST /query
+
+Run a pipe DSL query against stored events.
+
+**Auth**: `sk_` or `aat_` with `query` scope.
+
+```json
+{
+  "q": "page_view | last 7d | count by _browser",
+  "format": "llm",
+  "limit": 100,
+  "offset": 0
+}
+```
+
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `q` | string | Yes | | Pipe DSL query string |
+| `format` | string | No | `"llm"` | `"llm"` (Markdown), `"json"`, or `"csv"` |
+| `limit` | integer | No | `100` | Max 10,000 |
+| `offset` | integer | No | `0` | For pagination |
+
+### Response
+
+Depends on `format`:
+
+- **`llm`**: Markdown table (Content-Type: `text/plain`)
+- **`json`**: JSON array of objects (Content-Type: `application/json`)
+- **`csv`**: CSV string (Content-Type: `text/csv`)
+
+---
+
+## Errors
+
+All errors return JSON:
+
+```json
+{ "error": "message" }
+```
+
+| Status | Meaning |
+|---|---|
+| 400 | Bad request (invalid JSON, missing fields, batch too large) |
+| 401 | Missing or invalid API key |
+| 403 | Insufficient scope or membership |
+| 404 | Not found |
+| 413 | Payload too large |
+| 429 | Rate limited. Includes `Retry-After: 60` header |
+| 503 | Feature disabled |
+| 504 | Query timed out |

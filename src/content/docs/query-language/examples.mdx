@@ -1,6 +1,280 @@
 ---
-title: "Query Examples"
-description: "Annotated real-world query examples for common analytics use cases."
+title: Query Examples
+description: 15+ annotated real-world queries organized by category.
 ---
 
-Content coming soon. This page will cover annotated real-world query examples for common analytics use cases such as funnels, retention, segmentation, and event analysis.
+import { Aside } from '@astrojs/starlight/components';
+
+<Aside type="tip" title="Replace placeholders with your event names">
+Event names like `<signup_event>`, `<purchase_event>` are placeholders. Discover your project's actual event names first:
+
+```
+* | last 30d | count by event_type | top 20
+```
+</Aside>
+
+## Discovery
+
+Find what events exist and how frequently they fire.
+
+### Top event types
+
+```
+* | last 30d | count by event_type | top 20
+```
+
+Returns the 20 most common event types by count over the last 30 days. Run this first in any new project.
+
+### Full event inventory
+
+```
+* | last 90d | count by event_type | sort event_type asc | limit 10000
+```
+
+Alphabetical list of all event types with counts. Use `limit 10000` to avoid truncation on projects with many event types.
+
+### Events today
+
+```
+* | today | count by event_type | top 10
+```
+
+Quick check of what is firing right now.
+
+## Counts and trends
+
+### Daily event count
+
+```
+<signup_event> | last 7d | count by day
+```
+
+One row per day with the count of the specified event. Default sort is by time ascending.
+
+### Weekly unique users
+
+```
+<signup_event> | last 12w | unique distinct_id by week
+```
+
+Unique users (stitched identity) who triggered the event, grouped by week.
+
+### Platform breakdown
+
+```
+* | last 30d | count by _platform
+```
+
+Total events split by `web`, `android`, `ios`. Add `| top 10` if there are many values.
+
+### Filtered count with multiple conditions
+
+```
+<core_event> | where _platform = "web" AND _browser = "Chrome" | last 30d | count by day
+```
+
+AND logic within a single `where`. Multiple `| where` clauses are also AND-ed.
+
+## Funnels
+
+### Basic conversion funnel
+
+```
+funnel <signup_event> -> <activation_event> -> <purchase_event> | last 30d
+```
+
+Returns step number and user count for each step. Step 1 = entered funnel, step 2 = completed second event, etc. Measures drop-off between steps.
+
+### Funnel with platform breakout
+
+```
+funnel <signup_event> -> <activation_event> -> <purchase_event> | last 30d | by _platform
+```
+
+Same funnel, segmented by platform. Each platform gets its own set of step counts.
+
+### Funnel with completion window
+
+```
+funnel <signup_event> -> <first_value_event> -> <upgrade_event> | last 90d | window 7d
+```
+
+Only counts users who completed the funnel within 7 days. Default window is 30 days.
+
+## Retention
+
+### Weekly cohort retention
+
+```
+retention <signup_event> | last 90d
+```
+
+Groups users into weekly cohorts by their first `<signup_event>`. Shows how many return in weeks 1 through 12. Default granularity: `week`.
+
+### Retention with specific return event
+
+```
+retention <signup_event> returning <core_usage_event> | last 90d
+```
+
+Same cohort grouping, but only counts returns where the user did the specified event (not just any event).
+
+### Monthly retention
+
+```
+retention <signup_event> | last 6m | by month
+```
+
+Monthly cohorts instead of weekly. Returns 6 monthly cohorts with up to 6 periods each.
+
+## User analysis
+
+### Single user timeline
+
+```
+user "alice@acme.org" | last 90d | list
+```
+
+All events for this user in reverse chronological order. Matches on stitched `distinct_id`, so anonymous events from before identification are included.
+
+### User event breakdown
+
+```
+user "alice@acme.org" | last 30d | count by event_type
+```
+
+What event types did this user trigger, and how many times?
+
+### User directory listing
+
+```
+users | where email_domain = "acme.org" | list
+```
+
+List all user profiles from the `acme.org` domain. Returns `user_id`, `email`, `email_domain`, `first_seen`, `last_seen`, and custom properties.
+
+<Aside type="note">
+`users` queries the `user_profiles` table. Profiles are populated by `identify()` calls. If a user has never been identified, they will not appear here.
+</Aside>
+
+### User count by plan
+
+```
+users | count by user.plan | top 10
+```
+
+How many users on each plan? Requires `plan` to be set via `identify()`.
+
+## B2B segmentation
+
+### Company activity
+
+```
+* | where user.email_domain = "acme.org" | last 30d | count by event_type
+```
+
+All events from users at `acme.org`, broken down by type. Requires email to be set via `identify()`.
+
+### Top companies by active users
+
+```
+* | last 12w | count by user.email_domain | sort count desc | top 20
+```
+
+Which companies have the most event volume? Proxy for engagement.
+
+### Per-user activity within a company
+
+```
+<core_usage_event> | where user.email_domain = "acme.org" | last 12w | count by week, user.email
+```
+
+Weekly usage per user at a specific company. Useful for identifying champions and inactive seats.
+
+### Enterprise plan users over time
+
+```
+* | where user.plan = "enterprise" | last 12w | unique distinct_id by week
+```
+
+Weekly unique enterprise-plan users. Track growth or contraction of the enterprise segment.
+
+## Revenue and metrics
+
+### Weekly revenue
+
+```
+<purchase_event> | last 12w | sum event_properties.amount by week
+```
+
+Total revenue per week. Requires `amount` in `event_properties` on purchase events.
+
+### Conversion rate via formula
+
+```
+formula count(<purchase_event>) / count(<signup_event>) | last 30d
+```
+
+Single number: what fraction of signups convert to purchase? Output is a decimal (e.g. `0.12` = 12%).
+
+### Weekly conversion rate trend
+
+```
+formula count(<purchase_event>) / count(<signup_event>) | last 12w | by week
+```
+
+Same ratio as a weekly time series. Track whether conversion is improving.
+
+### Average order value
+
+```
+<purchase_event> | last 30d | avg event_properties.amount
+```
+
+Mean purchase amount. Use `median` for a distribution-resistant measure:
+
+```
+<purchase_event> | last 30d | median event_properties.amount
+```
+
+## Sessions and paths
+
+### Daily session metrics
+
+```
+sessions | last 7d
+```
+
+Default output: session count, average duration (seconds), average events per session, grouped by day.
+
+### Weekly session trends
+
+```
+sessions | last 12w | count by week
+```
+
+Session count per week. Track engagement trends.
+
+### User paths from an event
+
+```
+paths from <signup_event> | last 30d
+```
+
+Most common event sequences after signup. Returns arrays of event types with user counts. Default depth: 5 steps, default limit: 20 paths.
+
+### Paths leading to conversion
+
+```
+paths to <purchase_event> | last 30d | depth 8
+```
+
+What do users do before purchasing? 8-step paths leading up to the purchase event.
+
+### Paths with more results
+
+```
+paths from <onboarding_start> | last 30d | depth 6 | limit 50
+```
+
+Increase depth and result count for broader exploration.

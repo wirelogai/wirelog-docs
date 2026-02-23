@@ -3,4 +3,165 @@ title: "Python Client"
 description: "Zero-dependency Python analytics client."
 ---
 
-Content coming soon. This page will cover the zero-dependency Python client for tracking events and identifying users from Python applications and scripts.
+Zero external dependencies. Uses only Python stdlib (`urllib.request`, `json`, `time`, `uuid`, `os`). Python 3.9+.
+
+## Install
+
+```bash
+pip install wirelog
+```
+
+## Quick start
+
+```python
+from wirelog import WireLog
+
+wl = WireLog(api_key="sk_your_secret_key", host="https://yourhost.com")
+
+# Track an event
+wl.track("page_view", user_id="alice", event_properties={"page": "/pricing"})
+
+# Query
+result = wl.query("page_view | last 7d | count by user_id")
+print(result)  # Markdown table
+```
+
+---
+
+## Constructor
+
+```python
+WireLog(api_key=None, host=None, timeout=30)
+```
+
+| Parameter | Type | Default | Notes |
+|---|---|---|---|
+| `api_key` | `str \| None` | `WIRELOG_API_KEY` env var | `pk_`, `sk_`, or `aat_` |
+| `host` | `str \| None` | `WIRELOG_HOST` env var or `https://wirelog.ai` | API base URL |
+| `timeout` | `int` | `30` | HTTP timeout in seconds |
+
+---
+
+## Methods
+
+### track()
+
+```python
+wl.track(
+    event_type,
+    *,
+    user_id=None,
+    device_id=None,
+    session_id=None,
+    event_properties=None,
+    user_properties=None,
+    insert_id=None,
+)
+```
+
+Returns `{"accepted": 1}`.
+
+Auto-generates `insert_id` (UUID hex) and `time` (UTC ISO 8601) if not provided.
+
+```python
+wl.track(
+    "purchase",
+    user_id="u_123",
+    event_properties={"plan": "pro", "amount": 49},
+)
+```
+
+### track_batch()
+
+```python
+wl.track_batch(events)
+```
+
+`events` is a list of dicts matching the single-event schema. Returns `{"accepted": N}`.
+
+```python
+wl.track_batch([
+    {"event_type": "page_view", "user_id": "u_1", "event_properties": {"page": "/"}},
+    {"event_type": "click", "user_id": "u_1", "event_properties": {"button": "cta"}},
+])
+```
+
+### query()
+
+```python
+wl.query(q, *, format="llm", limit=100, offset=0)
+```
+
+| Parameter | Type | Default | Notes |
+|---|---|---|---|
+| `q` | `str` | | Pipe DSL query string |
+| `format` | `str` | `"llm"` | `"llm"` (Markdown), `"json"`, `"csv"` |
+| `limit` | `int` | `100` | Max 10,000 |
+| `offset` | `int` | `0` | Pagination offset |
+
+Returns a Markdown string (`llm`), parsed JSON list (`json`), or CSV string (`csv`).
+
+```python
+# Markdown table
+print(wl.query("* | last 30d | count by event_type | top 10"))
+
+# JSON
+data = wl.query("page_view | last 7d | count", format="json")
+
+# CSV export
+csv = wl.query("* | last 90d | count by event_type", format="csv", limit=10000)
+```
+
+### identify()
+
+```python
+wl.identify(
+    user_id,
+    *,
+    device_id=None,
+    user_properties=None,
+    user_property_ops=None,
+)
+```
+
+Returns `{"ok": True}`.
+
+Binds `device_id` to `user_id` and upserts user profile properties. No event emitted.
+
+```python
+wl.identify(
+    "alice@acme.org",
+    device_id="dev_abc",
+    user_properties={"email": "alice@acme.org"},
+    user_property_ops={
+        "$set": {"plan": "enterprise"},
+        "$set_once": {"signup_source": "ads"},
+        "$add": {"login_count": 1},
+        "$unset": ["legacy_flag"],
+    },
+)
+```
+
+---
+
+## Error handling
+
+Non-2xx responses raise `WireLogError`.
+
+```python
+from wirelog import WireLog, WireLogError
+
+wl = WireLog()
+
+try:
+    wl.track("event")
+except WireLogError as e:
+    print(e.status)   # HTTP status code
+    print(e)          # "WireLog API 401: {"error":"missing api key"}"
+```
+
+---
+
+## Source
+
+[github.com/wirelogai/wirelog-python](https://github.com/wirelogai/wirelog-python)

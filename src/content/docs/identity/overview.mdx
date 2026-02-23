@@ -1,6 +1,96 @@
 ---
-title: "Identity Overview"
+title: "Identity"
 description: "Device-to-user identity stitching with distinct_id."
 ---
 
-Content coming soon. This page will cover the identity system including device-to-user stitching, how distinct_id works, and the identity resolution pipeline.
+Users start anonymous. They browse with a `device_id` but no `user_id`. When they log in or sign up, the `user_id` becomes known. WireLog stitches these into one identity automatically.
+
+## Stitched identity: `distinct_id`
+
+```
+distinct_id = coalesce(user_id, mapped_user_id, device_id)
+```
+
+Resolution order:
+
+1. `user_id` -- if the event has one, use it directly.
+2. `mapped_user_id` -- if the `device_id` has been bound to a user via `/identify`, use that mapping.
+3. `device_id` -- fallback for fully anonymous events.
+
+Use `unique distinct_id` in queries for unique user counts. This is the only field that correctly deduplicates across anonymous and identified sessions.
+
+## device_user_map
+
+Maps `device_id` to `user_id`. Created by `POST /identify` calls.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `project_id` | UUID | Scoped per project |
+| `device_id` | String | Anonymous device identifier |
+| `user_id` | String | Identified user identifier |
+| `updated_at` | DateTime64 | Latest mapping wins |
+
+Storage engine: ClickHouse `ReplacingMergeTree(updated_at)`, ordered by `(project_id, device_id)`. If the same device is identified to a different user, the latest mapping replaces the old one.
+
+## user_profiles
+
+Latest user profile state per user. Updated by `/identify` calls.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `email` | String | Extracted from user properties |
+| `email_domain` | String | Auto-extracted from `email` (e.g. `acme.org`) |
+| `first_seen` | DateTime64 | Set on first `/identify` call |
+| `last_seen` | DateTime64 | Updated on every `/identify` call |
+| `user_properties` | Map(String, String) | Custom string properties |
+| `user_properties_num` | Map(String, Float64) | Custom numeric properties |
+| `user_properties_bool` | Map(String, UInt8) | Custom boolean properties |
+
+Storage engine: ClickHouse `ReplacingMergeTree(updated_at)`, ordered by `(project_id, user_id)`.
+
+Profile fields are queryable via `user.KEY`:
+
+```text
+* | where user.email_domain = "acme.org" | last 30d | count by event_type
+* | where user.plan = "enterprise" | last 12w | count by week
+users | where email_domain = "acme.org" | list
+```
+
+## Pre-identify attribution
+
+Anonymous events are attributed to the identified user once the device mapping exists. No backfill job runs. The query compiler resolves `distinct_id` at query time by joining `device_user_map`.
+
+This means:
+
+- Events tracked before `/identify` are retroactively attributed.
+- No data rewriting. No async backfill. No eventual consistency lag.
+- The mapping is read at query time, so it is always current.
+
+## How to use
+
+1. Send `device_id` on every event. Generate it client-side (UUID or similar) and persist it (localStorage, keychain, etc.).
+2. Call `POST /identify` when the user is known -- login, signup, or account link.
+3. Use `unique distinct_id` in queries for unique user counts.
+
+## Example flow
+
+```text
+1. User visits site (anonymous)
+   -> track page_view, device_id="dev_abc"
+
+2. User browses more pages
+   -> track page_view, device_id="dev_abc"
+
+3. User signs up
+   -> POST /identify { user_id: "alice@acme.org", device_id: "dev_abc" }
+
+4. All past events with device_id="dev_abc" now resolve to distinct_id="alice@acme.org"
+
+5. Query: signup | last 30d | unique distinct_id
+   -> Counts alice@acme.org once, including her anonymous session
+```
+
+## Next steps
+
+- [Identify API](/identity/identify-api) -- endpoint reference, property ops, curl examples
+- [Query language](/query-language/overview) -- using `distinct_id`, `user.KEY`, and identity-aware queries

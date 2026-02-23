@@ -1,6 +1,152 @@
 ---
-title: "Migration Guide"
-description: "Coming from Amplitude, PostHog, or Mixpanel."
+title: "Migration"
+description: "Coming from Mixpanel, Amplitude, or PostHog."
 ---
 
-Content coming soon. This page will cover migration guides for teams coming from Amplitude, PostHog, or Mixpanel, including concept mapping and data migration strategies.
+import { Aside } from '@astrojs/starlight/components';
+
+## Concept mapping
+
+| Concept | Mixpanel / Amplitude / PostHog | WireLog |
+|---|---|---|
+| Events | Events / Events / Actions | `POST /track` with `event_type` |
+| Users | People / User Properties / Persons | `POST /identify` + `user_profiles` table |
+| User ID | `distinct_id` / `user_id` / `distinct_id` | `user_id` + `device_id` stitched to `distinct_id` |
+| Properties | Event / User / Group props | `event_properties` + `user_properties` maps |
+| Dashboards | Charts / Insights / Dashboards | Pipe DSL queries returning Markdown, JSON, or CSV |
+| Funnels | Funnels | `funnel a -> b -> c` source |
+| Retention | Retention charts | `retention event` source |
+| Cohorts | Cohorts / Cohorts / Groups | `users \| where ...` + `user.KEY` filters |
+| Segments | Saved segments | `where` stages with profile fields |
+| Sessions | Auto-captured | `sessions` source |
+| Group analytics | Group profiles | `user.email_domain` or `user.company_id` filters |
+| Formulas | Formulas / Custom metrics | `formula count(a) / count(b)` source |
+
+## Migration steps
+
+### 1. Create a WireLog project
+
+Sign up at [wirelog.ai](https://wirelog.ai), create a project, and grab your API keys. See [Quickstart](/quickstart).
+
+### 2. Instrument tracking
+
+Replace existing track calls with `POST /track`. The concepts are the same: event name + properties.
+
+**Mixpanel:**
+```javascript
+// Before
+mixpanel.track("signup", { plan: "pro" });
+
+// After
+fetch("https://wirelog.ai/track", {
+  method: "POST",
+  headers: { "X-API-Key": "pk_...", "Content-Type": "application/json" },
+  body: JSON.stringify({ event_type: "signup", event_properties: { plan: "pro" } })
+});
+```
+
+**Amplitude:**
+```javascript
+// Before
+amplitude.logEvent("signup", { plan: "pro" });
+
+// After -- same as above
+```
+
+**PostHog:**
+```javascript
+// Before
+posthog.capture("signup", { plan: "pro" });
+
+// After -- same as above
+```
+
+Or use the [JS SDK](/tracking/js-sdk) for automatic `page_view` tracking, session management, and batching:
+
+```html
+<script src="https://wirelog.ai/public/wirelog.js" data-key="pk_..." data-host="https://wirelog.ai"></script>
+<script>wl.track("signup", { plan: "pro" });</script>
+```
+
+### 3. Add identity
+
+Replace identify/alias calls with `POST /identify`.
+
+```bash
+curl -X POST https://wirelog.ai/identify \
+  -H "X-API-Key: pk_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "alice@acme.org",
+    "device_id": "dev_abc123",
+    "user_properties": { "email": "alice@acme.org", "plan": "pro" }
+  }'
+```
+
+<Aside type="caution" title="No alias chaining">
+WireLog uses a single-hop identity model: `device_id` maps to `user_id`. There is no alias chaining (Mixpanel `alias`) or identity merging (PostHog `$identify`). Each device maps to exactly one user. This is simpler and avoids the merge ambiguity that causes data quality issues in other platforms.
+</Aside>
+
+### 4. Recreate key queries
+
+Map existing dashboard queries to pipe DSL equivalents.
+
+| Old platform query | WireLog equivalent |
+|---|---|
+| Signup trend (line chart, weekly) | `signup \| last 12w \| count by week` |
+| Signup-to-purchase funnel | `funnel signup -> purchase \| last 30d` |
+| 90-day retention | `retention signup \| last 90d` |
+| Revenue by week | `purchase \| last 12w \| sum event_properties.amount by week` |
+| Users by country | `users \| count by user.country \| top 20` |
+| DAU | `* \| last 30d \| unique distinct_id by day` |
+
+Replace event names with your actual event names. Discover them with:
+
+```
+* | last 30d | count by event_type | top 20
+```
+
+### 5. Run in parallel
+
+Send events to both platforms during transition:
+
+1. Instrument dual-tracking (send to old platform + WireLog simultaneously)
+2. Run queries in both systems, compare results
+3. Once WireLog numbers match expectations, cut over
+4. Remove old platform SDK
+
+<Aside type="tip">
+WireLog's permissive ingest means you can send the same property shapes you already send to Mixpanel/Amplitude/PostHog. Property types are normalized server-side -- no schema setup required.
+</Aside>
+
+## Key differences
+
+**No dashboards.** Queries return Markdown, JSON, or CSV. Your agent, script, or notebook is the consumer. There is no visual query builder or chart renderer.
+
+**No visual query builder.** The pipe DSL is text-based. Queries are written as `source | stage | stage`. LLMs and agents can compose them directly.
+
+**No user aliases.** `device_id` maps to `user_id` in one hop. No alias chaining, no merge rules, no identity graph. Simpler model, fewer data quality surprises.
+
+**Permissive ingest.** Property types are normalized server-side. Send numbers as strings, booleans as integers -- it all works. No schema enforcement, no type errors on ingest.
+
+**No group analytics (yet).** Use `user.email_domain` or `user.company_id` for B2B company-level segmentation. See [SaaS Metrics](/guides/saas-metrics#b2b-segmentation) for recipes.
+
+**Output is for machines.** Default output format is Markdown (optimized for LLM consumption). Also supports JSON and CSV. No charts, no embeds, no iframes.
+
+## Pricing comparison
+
+| Volume | WireLog | PostHog | Amplitude | Mixpanel |
+|---|---|---|---|---|
+| 10M/month | **$0** (free tier) | ~$500 | ~$49-200 | ~$2,500 |
+| 50M/month | **$200** | ~$1,500 | ~$500-1,500 | ~$5,000+ |
+| 100M/month | **$450** | ~$2,500 | ~$1,500-3,000 | ~$5,000-10,000 |
+| 1B/month | **$4,950** | ~$15,000+ | Contact sales | Contact sales |
+
+WireLog: **$5 per million events. 10M free.** No per-seat pricing. No MTU math. No sales calls.
+
+- Mixpanel: ~$280/million events
+- Amplitude: MTU-based, opaque at scale
+- PostHog: ~$25/million events (at volume)
+- WireLog: $5/million events
+
+See [Pricing](/reference/pricing) for details.

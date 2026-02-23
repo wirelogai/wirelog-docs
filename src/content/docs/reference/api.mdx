@@ -3,4 +3,259 @@ title: "API Reference"
 description: "Complete HTTP API reference for WireLog."
 ---
 
-Content coming soon. This page will cover the complete HTTP API reference for WireLog including all endpoints, request/response schemas, authentication, and error codes.
+All requests and responses are JSON unless noted. Authentication via `X-API-Key` header or `key` query parameter (API keys) or `wl_session` cookie (session auth).
+
+## Public Endpoints
+
+No authentication required.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/` | Landing page |
+| `GET` | `/login` | Login page |
+| `GET` | `/auth/github` | GitHub OAuth initiation |
+| `GET` | `/auth/github/cb` | GitHub OAuth callback |
+| `POST` | `/auth/logout` | Destroy session |
+| `GET` | `/public/*` | Static assets (JS SDK, CSS) |
+| `GET` | `/llms.txt` | LLM-readable site summary |
+
+---
+
+## API Key Endpoints
+
+### POST /track
+
+Ingest events. Single or batch.
+
+**Auth:** `pk_`, `sk_`, or `aat_` with `track` scope.
+
+Single event:
+
+```json
+{
+  "event_type": "page_view",
+  "user_id": "u123",
+  "device_id": "d456",
+  "session_id": "s789",
+  "time": "2026-01-15T10:30:00Z",
+  "event_properties": {"page": "/home"},
+  "user_properties": {"plan": "pro"},
+  "insert_id": "optional-dedup-id"
+}
+```
+
+Batch:
+
+```json
+{
+  "events": [
+    {"event_type": "click", "event_properties": {"button": "signup"}},
+    {"event_type": "page_view", "event_properties": {"page": "/pricing"}}
+  ]
+}
+```
+
+**Response:**
+
+```json
+{"accepted": 2}
+```
+
+Invalid events in a batch are silently skipped.
+
+---
+
+### POST /identify
+
+Bind a device to a user. Update user profile properties.
+
+**Auth:** `pk_`, `sk_`, or `aat_` with `track` scope.
+
+```json
+{
+  "user_id": "alice@acme.org",
+  "device_id": "dev_123",
+  "user_properties": {"email": "alice@acme.org", "plan": "pro"},
+  "user_property_ops": {
+    "$set": {"plan": "pro"},
+    "$set_once": {"signup_source": "ads"},
+    "$add": {"login_count": 1},
+    "$unset": ["legacy_flag"]
+  }
+}
+```
+
+**Response:**
+
+```json
+{"ok": true}
+```
+
+---
+
+### POST /query
+
+Run a pipe DSL query.
+
+**Auth:** `sk_` or `aat_` with `query` scope.
+
+```json
+{
+  "q": "event_type = \"page_view\" | last 7d | count by _browser",
+  "format": "llm",
+  "limit": 100,
+  "offset": 0
+}
+```
+
+| Field | Required | Default | Notes |
+|-------|----------|---------|-------|
+| `q` | Yes | -- | Pipe DSL query string |
+| `format` | No | `"llm"` | `"llm"` (Markdown), `"json"`, or `"csv"` |
+| `limit` | No | `100` | Max 10,000 |
+| `offset` | No | `0` | Pagination offset |
+
+**Response:** Markdown table, JSON array, or CSV depending on `format`.
+
+---
+
+## Session-Authenticated API
+
+All `/api/*` routes require the `wl_session` cookie (set by GitHub OAuth login).
+
+### Organizations
+
+**GET /api/orgs** -- List user's orgs.
+
+**POST /api/orgs** -- Create org.
+
+```json
+{"name": "Acme Corp"}
+```
+
+**GET /api/orgs/\{orgID\}** -- Get org details.
+
+**POST /api/orgs/\{orgID\}/rotate-admin-key** -- Rotate the org admin key (`ak_`).
+
+```json
+{"admin_key": "ak_..."}
+```
+
+---
+
+### Projects
+
+**GET /api/orgs/\{orgID\}/projects** -- List org projects.
+
+**POST /api/orgs/\{orgID\}/projects** -- Create project.
+
+```json
+{"name": "My App"}
+```
+
+Returns project with `public_key` (`pk_`) and `secret_key` (`sk_`).
+
+**GET /api/projects/\{projectID\}** -- Get project (includes keys).
+
+**DELETE /api/projects/\{projectID\}** -- Delete project permanently.
+
+```json
+{
+  "project_name": "My App",
+  "project_name_confirm": "My App"
+}
+```
+
+Both fields must match exactly. Deletes project and all associated data.
+
+**POST /api/projects/\{projectID\}/rotate-secret-key** -- Rotate `sk_` key. Public key unchanged.
+
+---
+
+### Access Tokens
+
+**POST /api/projects/\{projectID\}/tokens** -- Create scoped access token.
+
+```json
+{
+  "name": "ci-pipeline",
+  "scopes": ["track", "query"],
+  "expires_in": "720h"
+}
+```
+
+Returns the raw token once. It cannot be retrieved again.
+
+**GET /api/projects/\{projectID\}/tokens** -- List tokens (prefix only).
+
+**DELETE /api/projects/\{projectID\}/tokens/\{tokenID\}** -- Revoke token.
+
+---
+
+### Usage
+
+**GET /api/projects/\{projectID\}/usage** -- Daily usage stats.
+
+Query params: `?from=YYYY-MM-DD&to=YYYY-MM-DD`. Defaults to current month.
+
+---
+
+## Admin API
+
+Auth: org admin key (`ak_`) via `X-API-Key` header. All routes under `/api/admin/*`.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/admin/projects` | List org projects |
+| `POST` | `/api/admin/projects` | Create project |
+| `GET` | `/api/admin/projects/{projectID}` | Get project (includes keys) |
+| `DELETE` | `/api/admin/projects/{projectID}` | Delete project (same confirmation body as session API) |
+| `POST` | `/api/admin/projects/{projectID}/rotate-secret-key` | Rotate `sk_` key |
+| `GET` | `/api/admin/projects/{projectID}/usage` | Daily usage stats |
+
+---
+
+## GDPR
+
+Auth: `sk_` or `aat_` with `admin` scope via `X-API-Key` header.
+
+**DELETE /api/gdpr/users/\{userID\}** -- Delete all user data: events, identity mappings, and profile rows. Logged to audit trail.
+
+**GET /api/gdpr/users/\{userID\}/export** -- Stream all user events as NDJSON. Logged to audit trail.
+
+---
+
+## API Key Types
+
+| Prefix | Type | Scopes | Client-safe? |
+|--------|------|--------|--------------|
+| `pk_` | Public key | `track` | Yes |
+| `sk_` | Secret key | `track`, `query`, `admin` | No |
+| `ak_` | Admin key | org admin | No |
+| `aat_` | Access token | custom per-token | Depends on scopes |
+
+- `pk_` keys are safe to expose in client-side code. They can only ingest events.
+- `sk_` keys have full project access. Never expose in browsers or public repos.
+- `ak_` keys have org-level admin access. Never expose in client code.
+- `aat_` tokens are hashed before storage. The raw token is shown once at creation.
+
+---
+
+## Error Format
+
+All errors return:
+
+```json
+{"error": "message"}
+```
+
+| Code | Meaning |
+|------|---------|
+| `400` | Bad request |
+| `401` | Missing or invalid authentication |
+| `403` | Insufficient scope or limit reached |
+| `404` | Not found |
+| `413` | Payload too large |
+| `429` | Rate limited (includes `Retry-After: 60` header) |
+| `503` | Feature disabled |
+| `504` | Query timeout |

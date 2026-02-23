@@ -1,6 +1,248 @@
 ---
-title: "Sources"
-description: "Event, funnel, retention, paths, sessions, user, users, and formula sources."
+title: Sources
+description: Full reference for event, funnel, retention, paths, sessions, user, users, and formula sources.
 ---
 
-Content coming soon. This page will cover the available query sources including event, funnel, retention, paths, sessions, user, users, and formula sources, with syntax and usage for each.
+import { Aside } from '@astrojs/starlight/components';
+
+The source is the first token in every query. It determines what data the pipeline operates on.
+
+## Event source
+
+Filter events by `event_type`. Use `*` for all events.
+
+**Syntax:**
+
+```
+<event_name>
+*
+```
+
+A leading `|` (with no source) is equivalent to `*`.
+
+**Description:** Selects rows from the `events` table matching the given event type. `*` selects all event types. This is the most common source -- most queries start here.
+
+**Examples:**
+
+```
+# Count page views in the last 7 days
+page_view | last 7d | count
+
+# Daily count of all events, broken down by type
+* | last 30d | count by day, event_type
+
+# Filter to web platform, list raw events
+signup | where _platform = "web" | last 7d | list
+```
+
+## Funnel
+
+Multi-step conversion analysis. Measures how many users complete each step in sequence.
+
+**Syntax:**
+
+```
+funnel <step1> -> <step2> -> <step3> [-> ...]
+```
+
+Requires at least 2 steps. Supports `| by <field>` for breakout by a dimension. Supports `| window <duration>` to set the completion window (default: 30 days).
+
+**Description:** Computes a funnel using ClickHouse `windowFunnel`. For each user (`distinct_id`), it tracks the furthest step reached within the window. Returns step number and user count per step. Uses stitched identity -- anonymous events are attributed if an identify mapping exists.
+
+**Examples:**
+
+```
+# Basic 3-step funnel
+funnel signup -> activate -> purchase | last 30d
+
+# Funnel with platform breakout
+funnel signup -> activate -> purchase | last 30d | by _platform
+
+# Funnel with 7-day completion window
+funnel signup -> first_project -> first_query | last 90d | window 7d
+```
+
+<Aside type="note">
+Funnel steps must be event type names. The `by` stage is a standalone `| by field` (not `| count by`). Use it to break funnel results by a dimension like `_platform` or `_browser`.
+</Aside>
+
+## Retention
+
+Cohort retention analysis. Tracks what percentage of users who did a start event come back over subsequent time periods.
+
+**Syntax:**
+
+```
+retention <start_event>
+retention <start_event> returning <return_event>
+retention <start_event> returning any
+```
+
+**Description:** Groups users into cohorts by the period they first did `<start_event>`. Tracks how many return in subsequent periods. Default granularity is `week` (12 periods). Default time range is 12 weeks. `returning any` matches any event as the return action. If `returning` is omitted, any event counts.
+
+Supports `| by <granularity>` to change the cohort period (`day`, `week`, `month`). Supports `| by <field>` for breakdown.
+
+**Examples:**
+
+```
+# Weekly retention for signups over 90 days
+retention signup | last 90d
+
+# Retention with a specific return event
+retention signup returning purchase | last 90d
+
+# Monthly retention cohorts
+retention signup | last 6m | by month
+
+# Daily retention
+retention signup returning login | last 30d | by day
+```
+
+## Paths
+
+User flow analysis. Shows common event sequences starting from or leading to a given event.
+
+**Syntax:**
+
+```
+paths from <event>
+paths to <event>
+```
+
+**Description:** `paths from` collects event sequences starting at `<event>` for each user, within a 1-hour window after the start event. `paths to` collects sequences leading up to `<event>` within 1 hour before it. Results are grouped by path (array of event types) with user counts. Default depth is 5 steps. Default limit is 20 paths.
+
+Supports `| depth <N>` to control path length. Supports `| limit <N>` to control number of paths returned.
+
+**Examples:**
+
+```
+# What do users do after signing up?
+paths from signup | last 30d
+
+# What leads users to purchase?
+paths to purchase | last 30d
+
+# Longer paths with more results
+paths from signup | last 30d | depth 8 | limit 50
+```
+
+## Sessions
+
+Session-level analytics. Groups events by `session_id` and computes per-session metrics.
+
+**Syntax:**
+
+```
+sessions
+```
+
+**Description:** Aggregates events into sessions (grouped by `session_id` + `distinct_id`). Default output: session count, average duration (seconds), and average events per session, grouped by day. Requires events to have `session_id` set (the JS SDK sets this automatically with a 30-minute inactivity timeout).
+
+Supports time granularity grouping (`| count by day`, `| count by week`).
+
+**Examples:**
+
+```
+# Daily session metrics for the last 7 days
+sessions | last 7d
+
+# Weekly session metrics
+sessions | last 12w | count by week
+
+# Sessions for a specific time range
+sessions | from 2026-01-01 to 2026-02-01
+```
+
+## User timeline
+
+All events for a single user, ordered by time.
+
+**Syntax:**
+
+```
+user "<user_id_or_email>"
+```
+
+The user ID must be quoted. Matches against `distinct_id` (stitched identity: `coalesce(user_id, mapped_user_id, device_id)`).
+
+**Description:** Returns all events for the specified user. Default time range is 30 days. Default output is a chronological event list (most recent first). Supports aggregation stages if you want counts instead of raw events.
+
+**Examples:**
+
+```
+# Last 90 days of activity for a user
+user "alice@acme.org" | last 90d | list
+
+# Count events by type for a user
+user "alice@acme.org" | last 30d | count by event_type
+
+# Recent events (default 30d, default list)
+user "u_abc123"
+```
+
+<Aside type="tip">
+Use the email address or user ID you set via `identify()`. The query matches against the stitched `distinct_id`, so it finds events from before and after identification.
+</Aside>
+
+## Users directory
+
+Query the `user_profiles` table. Browse, filter, and count users.
+
+**Syntax:**
+
+```
+users
+```
+
+**Description:** Queries the `user_profiles` table (populated by identify calls and ingestion-side profile upserts). Defaults to users active in the last 30 days (by `last_seen`). Supports `| where` for filtering, `| list` for raw profiles, `| count` for totals, and `| count by <field>` for breakdowns.
+
+Available fields: `user_id`, `email`, `email_domain`, `first_seen`, `last_seen`, `user.KEY` (custom profile properties).
+
+**Examples:**
+
+```
+# List users from a specific domain
+users | where email_domain = "acme.org" | list
+
+# Count users by email domain
+users | count by email_domain | top 20
+
+# Count users on the enterprise plan
+users | where user.plan = "enterprise" | count
+
+# Users active this month
+users | this month | list
+```
+
+## Formula
+
+Computed metrics across event types. Combine count, unique, sum, or avg aggregates with arithmetic operators.
+
+**Syntax:**
+
+```
+formula <metric>(<event>[, field]) <op> <metric>(<event>[, field]) [<op> ...]
+```
+
+Supported functions: `count`, `unique`, `sum`, `avg`. Supported operators: `+`, `-`, `*`, `/`.
+
+**Description:** Each metric reference queries a specific event type. The formula combines them with arithmetic. Useful for conversion rates, ratios, and computed KPIs. For `sum` and `avg`, a second argument specifies the field. For `unique`, an optional second argument specifies the field (defaults to `user_id`).
+
+Supports `| by <granularity>` for time-series output.
+
+**Examples:**
+
+```
+# Conversion rate: purchases per signup
+formula count(purchase) / count(signup) | last 30d
+
+# Weekly conversion rate trend
+formula count(purchase) / count(signup) | last 12w | by week
+
+# Average revenue per user
+formula sum(purchase, event_properties.amount) / unique(purchase) | last 30d
+```
+
+<Aside type="note">
+Formula queries are event-level metrics. They do not use stitched identity for `count`. For unique user counts with identity stitching, prefer event queries with `| unique distinct_id`.
+</Aside>

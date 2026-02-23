@@ -1,6 +1,251 @@
 ---
 title: "SaaS Metrics"
-description: "Query recipes for funnels, retention, conversion, and segmentation."
+description: "Query recipes for funnels, retention, conversion, revenue, and segmentation."
 ---
 
-Content coming soon. This page will cover query recipes for common SaaS metrics including funnels, retention analysis, conversion tracking, and user segmentation.
+import { Aside } from '@astrojs/starlight/components';
+
+<Aside type="caution" title="Discover your event names first">
+All event names below are **placeholders**. Your project has its own event names. Run this before anything else:
+
+```
+* | last 30d | count by event_type | top 20
+```
+
+Replace `<signup_event>`, `<activation_event>`, `<purchase_event>`, etc. with real values from your project.
+</Aside>
+
+## Acquisition
+
+### Weekly signups
+
+```
+<signup_event> | last 12w | count by week
+```
+
+One row per week with signup count. 12-week window gives a quarter of trend data.
+
+### Signups by channel
+
+```
+<signup_event> | last 30d | count by user.acquisition_channel
+```
+
+Requires `acquisition_channel` set via `identify()` or `user_properties` on the track call.
+
+### Top referring domains
+
+```
+<signup_event> | last 30d | count by event_properties.referrer | top 20
+```
+
+Requires `referrer` passed in `event_properties` at track time. The JS SDK does not set this automatically -- instrument it in your tracking code.
+
+## Activation
+
+### Signup-to-activation funnel
+
+```
+funnel <signup_event> -> <activation_event> | last 30d
+```
+
+Two-step funnel. Returns user count at each step. Drop-off between steps = users who signed up but never activated.
+
+### Multi-step funnel by platform
+
+```
+funnel <signup_event> -> <activation_event> -> <purchase_event> | last 30d | by _platform
+```
+
+Three-step funnel segmented by `web`, `android`, `ios`. Each platform gets independent step counts.
+
+### Funnel with completion window
+
+```
+funnel <signup_event> -> <activation_event> | last 30d | window 7d
+```
+
+Only counts users who activated within 7 days of signup. Default window is 30 days.
+
+### Time to activate
+
+No built-in time-to-activate metric. Approximate it by querying user timelines:
+
+```
+user "alice@acme.org" | last 90d | list
+```
+
+Compare timestamps of the signup and activation events in the result. For aggregate time-to-activate across users, use the funnel with progressively tighter windows (`window 1d`, `window 3d`, `window 7d`) and compare conversion rates.
+
+## Retention
+
+### Weekly cohort retention
+
+```
+retention <signup_event> | last 90d
+```
+
+Groups users into weekly cohorts by their first signup. Shows return rates for weeks 1 through 12. Default granularity: `week`.
+
+### Retention with custom return event
+
+```
+retention <signup_event> returning <core_usage_event> | last 90d
+```
+
+Same cohort grouping, but only counts a return when the user performs the specified event. Without `returning`, any event counts.
+
+### Monthly retention
+
+```
+retention <signup_event> | last 6m | by month
+```
+
+Monthly cohorts. 6 months of data, up to 6 return periods each.
+
+## Revenue
+
+### Weekly revenue
+
+```
+<purchase_event> | last 12w | sum event_properties.amount by week
+```
+
+Total revenue per week. Requires `amount` as a numeric value in `event_properties` on purchase events.
+
+### Average order value
+
+```
+<purchase_event> | last 30d | avg event_properties.amount
+```
+
+Mean purchase amount. For a distribution-resistant measure:
+
+```
+<purchase_event> | last 30d | median event_properties.amount
+```
+
+### Conversion rate
+
+```
+formula count(<purchase_event>) / count(<signup_event>) | last 30d
+```
+
+Single decimal output (e.g. `0.12` = 12% conversion). For a weekly trend:
+
+```
+formula count(<purchase_event>) / count(<signup_event>) | last 12w | by week
+```
+
+<Aside type="note">
+`formula` queries are event-level metrics. They do not use stitched identity. For unique-user conversion, use a funnel instead.
+</Aside>
+
+## B2B segmentation
+
+### Activity by company
+
+```
+* | where user.email_domain = "acme.org" | last 30d | count by event_type
+```
+
+All events from users at a specific domain, broken down by type. Replace `"acme.org"` with the target company domain.
+
+### Top companies by usage
+
+```
+* | last 12w | count by user.email_domain | sort count desc | top 20
+```
+
+Highest-volume companies by event count. Proxy for engagement and expansion potential.
+
+### Weekly active users per company
+
+```
+* | where user.email_domain = "acme.org" | last 12w | unique distinct_id by week
+```
+
+Unique users (stitched identity) per week at a specific company. Track seat expansion or contraction.
+
+### Enterprise plan tracking
+
+```
+<core_usage_event> | where user.plan = "enterprise" | last 12w | count by week
+```
+
+Weekly usage volume from enterprise-plan users. Requires `plan` set via `identify()`.
+
+### Per-user activity within a company
+
+```
+<core_usage_event> | where user.email_domain = "acme.org" | last 12w | count by week, user.email
+```
+
+Identify champions (high usage) and inactive seats (zero rows) within an account.
+
+## B2C segmentation
+
+### Users by plan
+
+```
+users | count by user.plan | top 10
+```
+
+Distribution of users across plans. Requires `plan` set via `identify()`.
+
+### Paid vs free behavior
+
+Compare usage patterns between plan tiers:
+
+```
+<core_usage_event> | where user.plan = "pro" | last 30d | count by day
+```
+
+```
+<core_usage_event> | where user.plan = "free" | last 30d | count by day
+```
+
+Run both queries and compare the trends. Useful for understanding feature adoption across tiers.
+
+### Unique users by plan over time
+
+```
+* | where user.plan = "pro" | last 12w | unique distinct_id by week
+```
+
+Weekly active users on a specific plan. Track growth by tier.
+
+## User investigation
+
+### Single user timeline
+
+```
+user "alice@acme.org" | last 90d | list
+```
+
+All events for this user in reverse chronological order. Matches on stitched `distinct_id` -- anonymous events from before identification are included.
+
+### User event breakdown
+
+```
+user "alice@acme.org" | last 30d | count by event_type
+```
+
+What event types did this user trigger, and how many times?
+
+### User directory
+
+```
+users | where email_domain = "acme.org" | list
+```
+
+List all user profiles from a specific domain. Returns `user_id`, `email`, `email_domain`, `first_seen`, `last_seen`, and custom properties.
+
+<Aside type="note" title="Prerequisites for profile-based queries">
+Queries using `user.*` fields (like `user.plan`, `user.email_domain`, `user.acquisition_channel`) require the `user_profiles` table to be populated. This happens via:
+
+- `POST /identify` calls with `user_properties`
+- `user_properties` sent on `POST /track` events
+
+If profile-based queries return empty results, verify that identify calls are being made. See [Identity](/identity/overview) for setup.
+</Aside>

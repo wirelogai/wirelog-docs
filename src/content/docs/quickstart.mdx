@@ -1,68 +1,113 @@
 ---
 title: Quickstart
-description: Get WireLog tracking running in 5 minutes.
+description: Track your first event and query it back in 5 minutes.
 ---
 
 ## 1. Sign up
 
-Go to [wirelog.ai](https://wirelog.ai) and sign in with GitHub. This creates your account and default organization.
+Go to [wirelog.ai](https://wirelog.ai) and sign in with GitHub. A default organization is created automatically.
 
 ## 2. Create a project
 
-From the dashboard, click **+ New Project** and name it (e.g., `my-app`). You'll get two keys:
+From the dashboard, create a new project. You get two API keys:
 
-- **Public key** (`pk_...`): Safe for client-side code. Can only ingest events.
-- **Secret key** (`sk_...`): Full access (track + query). Keep server-side only.
+| Key | Prefix | Use |
+|-----|--------|-----|
+| Public key | `pk_...` | Client-safe. Track events only. |
+| Secret key | `sk_...` | Server-side only. Track + query + admin. |
+
+Copy both. The secret key is shown once.
 
 ## 3. Track your first event
 
 ```bash
-curl -X POST https://wirelog.ai/track \
-  -H "X-API-Key: pk_YOUR_PUBLIC_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"event_type":"test_event","user_id":"quickstart_user"}'
+$ curl -X POST https://wirelog.ai/track \
+    -H "X-API-Key: pk_YOUR_PUBLIC_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "event_type": "signup",
+      "user_id": "alice@acme.org",
+      "event_properties": {"plan": "pro", "source": "github"}
+    }'
 ```
 
-Response: `{"accepted": 1}`
+```json
+{"accepted": 1}
+```
+
+`event_type` is the only required field. `user_id`, `device_id`, `session_id`, `event_properties`, and `user_properties` are optional. Batch multiple events with `{"events": [...]}`.
 
 ## 4. Query it back
 
 ```bash
-curl -X POST https://wirelog.ai/query \
-  -H "X-API-Key: sk_YOUR_SECRET_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"q":"* | last 1d | count by event_type"}'
+$ curl -X POST https://wirelog.ai/query \
+    -H "X-API-Key: sk_YOUR_SECRET_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{"q": "* | last 1d | count by event_type", "format": "llm"}'
 ```
 
-You'll get a Markdown table with your event counts.
+```markdown
+## * | last 1d | count by event_type
+
+| event_type | count |
+|------------|-------|
+| signup     |     1 |
+```
+
+The `format` field controls output: `llm` (Markdown, default), `json`, or `csv`. Queries require a secret key (`sk_`) or an access token with `query` scope.
 
 ## 5. Add the JS SDK (optional)
 
-For browser tracking, add the script tag to your HTML:
+For browser tracking, drop a single script tag:
 
 ```html
-<script src="https://wirelog.ai/public/wirelog.js"
-        data-key="pk_YOUR_PUBLIC_KEY"
-        data-host="https://wirelog.ai"></script>
+<script
+  src="https://wirelog.ai/public/wirelog.js"
+  data-key="pk_YOUR_PUBLIC_KEY"
+  data-host="https://wirelog.ai">
+</script>
 ```
 
-This auto-tracks page views and manages device/session IDs.
+This auto-tracks `page_view` on load, manages `device_id` via localStorage, and handles `session_id` with a 30-minute inactivity timeout.
 
-## 6. Set up identity (recommended)
+Track custom events and identify users in JS:
 
-When a user logs in, call identify to bind their device to their user ID:
+```javascript
+// Track a custom event
+wl.track("button_click", { button: "upgrade", page: "/pricing" });
+
+// Identify a logged-in user
+wl.identify("alice@acme.org", { plan: "pro", company: "Acme" });
+```
+
+## 6. Set up identity
+
+Bind a device to a known user so pre-login events get stitched to the same `distinct_id`:
 
 ```bash
-curl -X POST https://wirelog.ai/identify \
-  -H "X-API-Key: pk_YOUR_PUBLIC_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"user_id":"alice@acme.org","device_id":"dev_abc","user_properties":{"email":"alice@acme.org"}}'
+$ curl -X POST https://wirelog.ai/identify \
+    -H "X-API-Key: pk_YOUR_PUBLIC_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "user_id": "alice@acme.org",
+      "device_id": "dev_abc123",
+      "user_properties": {"email": "alice@acme.org", "plan": "pro"},
+      "user_property_ops": {
+        "$set": {"plan": "pro"},
+        "$set_once": {"signup_source": "github"},
+        "$add": {"login_count": 1}
+      }
+    }'
 ```
 
-This enables identity-stitched analytics across anonymous and known sessions.
+```json
+{"ok": true}
+```
+
+`user_id` is required. `device_id` creates the device-to-user mapping. `user_property_ops` supports `$set`, `$set_once`, `$add`, and `$unset` for incremental profile updates.
 
 ## Next steps
 
-- [Query language overview](/query-language/overview) — learn the pipe DSL
-- [Agent setup](/agents/overview) — connect your AI agent to WireLog
-- [SaaS metrics guide](/guides/saas-metrics) — funnels, retention, segmentation recipes
+- [Query language](/query-language/overview) -- pipe DSL reference with sources, stages, and operators
+- [Agent setup](/agents/overview) -- MCP server, Claude Code skills, and agent query patterns
+- [SaaS metrics](/guides/saas-metrics) -- funnel, retention, and segmentation recipes

@@ -1,6 +1,152 @@
 ---
 title: "Agent Patterns"
-description: "Analytics patterns for AI agents: self-tracking, decision logging, and automated analysis."
+description: "Analytics patterns for AI agents: daily briefings, self-tracking, anomaly detection, and automated analysis."
 ---
 
-Content coming soon. This page will cover analytics patterns for AI agents including self-tracking, decision logging, automated analysis, and feedback loops.
+Reusable patterns for agents that consume and produce WireLog analytics.
+
+## Pattern 1: Morning briefing
+
+Agent runs discovery and key metric queries on a schedule, summarizes trends.
+
+```text
+# Discover what happened
+* | last 24h | count by event_type | top 10
+
+# Weekly signup trend
+signup | last 7d | count by day
+
+# Funnel health
+funnel signup -> activate | last 7d
+```
+
+The agent reads the Markdown tables, compares to prior periods, and produces a natural-language summary: "Signups up 12% WoW. Activation rate steady at 65%. No anomalies."
+
+## Pattern 2: Agent self-tracking
+
+The agent tracks its own actions as events. Useful for auditing agent behavior, measuring tool usage, and debugging failures.
+
+Track:
+
+```json
+{
+  "event_type": "agent_action",
+  "user_id": "agent-001",
+  "event_properties": {
+    "action": "query_analytics",
+    "input": "signup | last 7d | count",
+    "output": "142 signups",
+    "duration_ms": 340,
+    "model": "claude-opus-4-6"
+  }
+}
+```
+
+Query own performance:
+
+```text
+agent_action | last 7d | count by event_properties.action
+agent_action | where event_properties.action = "query_analytics" | last 7d | avg event_properties.duration_ms
+```
+
+## Pattern 3: Anomaly detection
+
+Agent compares current period to previous period and flags significant changes.
+
+Current week:
+
+```text
+signup | last 7d | count by day
+```
+
+Previous week:
+
+```text
+signup | from 2026-02-08 to 2026-02-15 | count by day
+```
+
+The agent compares the two tables row-by-row. If any day drops more than 20% below the same day in the prior week, it flags the anomaly and investigates:
+
+```text
+signup | where _platform = "mobile" | last 7d | count by day
+signup | where _platform = "web" | last 7d | count by day
+```
+
+"Mobile signups dropped 35% on Tuesday. Web was flat. Investigate the mobile signup flow."
+
+## Pattern 4: User investigation
+
+Agent drills into a specific user's activity timeline.
+
+```text
+user "alice@acme.org" | last 30d | list
+```
+
+Returns all events for that user in chronological order. The agent reads the timeline, identifies patterns, and answers questions: "Alice signed up on Feb 1, activated on Feb 3, but hasn't returned since Feb 10."
+
+Drill into a company:
+
+```text
+* | where user.email_domain = "acme.org" | last 30d | count by event_type
+* | where user.email_domain = "acme.org" | last 30d | unique distinct_id
+```
+
+## Pattern 5: Automated funnel analysis
+
+Agent discovers events, builds funnels, and identifies conversion bottlenecks.
+
+```text
+# Step 1: Discover events
+* | last 30d | count by event_type | top 20
+
+# Step 2: Build the funnel
+funnel signup -> activate -> purchase | last 30d
+
+# Step 3: Break down by platform
+funnel signup -> activate -> purchase | last 30d | by _platform
+
+# Step 4: Break down by acquisition channel
+funnel signup -> activate -> purchase | last 30d | by user.acquisition_channel
+```
+
+The agent identifies the biggest drop-off, segments by relevant dimensions, and recommends action: "Activation is the bottleneck (66% -> 25%). Mobile users convert at half the rate of web. Prioritize mobile onboarding improvements."
+
+## Pattern 6: Feedback loops
+
+Agent tracks the outcomes of its own recommendations, then measures whether they worked.
+
+Track the recommendation:
+
+```json
+{
+  "event_type": "agent_recommendation",
+  "user_id": "agent-001",
+  "event_properties": {
+    "recommendation": "add_mobile_onboarding",
+    "target_metric": "mobile_activation_rate",
+    "baseline": "32%"
+  }
+}
+```
+
+Later, query whether the target metric improved:
+
+```text
+funnel signup -> activate | where _platform = "mobile" | last 7d
+```
+
+Compare to the baseline. The agent closes the loop: "Mobile activation improved from 32% to 41% after onboarding changes were deployed."
+
+Query recommendation outcomes:
+
+```text
+agent_recommendation | last 30d | list
+```
+
+The agent reviews its past recommendations and their outcomes, learning which types of suggestions produce results.
+
+## Next steps
+
+- [Agents overview](/agents/overview) -- integration paths (MCP, skills, HTTP)
+- [MCP Server](/agents/mcp-server) -- tool definitions and setup
+- [Query language](/query-language/overview) -- full DSL reference

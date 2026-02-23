@@ -3,4 +3,137 @@ title: "Identify API"
 description: "POST /identify endpoint for device-user binding and profile management."
 ---
 
-Content coming soon. This page will cover the POST /identify endpoint for binding devices to users, setting user profile properties, and managing identity mappings.
+Bind a `device_id` to a `user_id` and update user profile properties. No event is emitted.
+
+## Endpoint
+
+```
+POST /identify
+```
+
+## Authentication
+
+`X-API-Key` header with a `pk_`, `sk_`, or `aat_` key (requires `track` scope).
+
+## Request body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `user_id` | string | Yes | The identified user. |
+| `device_id` | string | No | Device to bind. Recommended for identity stitching. |
+| `user_properties` | object | No | Flat key-value map. Behaves like `$set` for convenience. |
+| `user_property_ops` | object | No | Granular property operations (see below). |
+
+### user_property_ops
+
+| Operator | Type | Behavior |
+|----------|------|----------|
+| `$set` | `map[string]any` | Overwrite properties. |
+| `$set_once` | `map[string]any` | Set only if the key does not already exist on the profile. |
+| `$add` | `map[string]number` | Numeric increment. Creates the key with the given value if it does not exist. |
+| `$unset` | `string[]` | Remove properties by key name. |
+
+Operations are applied in order: `user_properties` (as `$set`) -> `$set` -> `$set_once` -> `$add` -> `$unset`.
+
+## Response
+
+```json
+{"ok": true}
+```
+
+## Behavior
+
+- If `device_id` is present: upserts `device_user_map` (`device_id` -> `user_id`).
+- Always: loads existing profile, applies ops in order, upserts to `user_profiles`.
+- `email_domain` is auto-extracted from the `email` property (e.g. `alice@acme.org` -> `acme.org`).
+- `first_seen` is set on the first identify call for a user. `last_seen` is updated on every call.
+- No event is emitted. This is purely an identity/profile operation.
+
+## Recommended profile fields
+
+### B2B
+
+| Field | Purpose |
+|-------|---------|
+| `email` | User identity, domain extraction |
+| `plan` | Segment by pricing tier |
+| `company_id` | Group users by account |
+| `company` | Human-readable company name |
+| `account_tier` | Enterprise / startup / SMB segmentation |
+
+### B2C
+
+| Field | Purpose |
+|-------|---------|
+| `email` | User identity, domain extraction |
+| `acquisition_channel` | Attribution (ads, organic, referral) |
+| `persona` | User archetype for segmentation |
+| `country` | Geographic segmentation |
+
+## Examples
+
+### Basic identify with device binding
+
+```bash
+curl -X POST https://wirelog.ai/identify \
+  -H "X-API-Key: pk_YOUR_PUBLIC_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "alice@acme.org",
+    "device_id": "dev_abc123",
+    "user_properties": {
+      "email": "alice@acme.org",
+      "plan": "pro"
+    }
+  }'
+```
+
+### Full property operations
+
+```bash
+curl -X POST https://wirelog.ai/identify \
+  -H "X-API-Key: pk_YOUR_PUBLIC_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "alice@acme.org",
+    "device_id": "dev_abc123",
+    "user_property_ops": {
+      "$set": {"plan": "enterprise", "company": "Acme Corp"},
+      "$set_once": {"signup_source": "product_hunt"},
+      "$add": {"login_count": 1},
+      "$unset": ["legacy_flag", "old_plan"]
+    }
+  }'
+```
+
+### Profile update only (no device binding)
+
+```bash
+curl -X POST https://wirelog.ai/identify \
+  -H "X-API-Key: sk_YOUR_SECRET_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "alice@acme.org",
+    "user_property_ops": {
+      "$set": {"account_tier": "enterprise"},
+      "$add": {"api_calls": 42}
+    }
+  }'
+```
+
+Omitting `device_id` skips the device mapping upsert. The profile is still updated.
+
+## Querying profile data
+
+After identify, profile fields are available in queries via `user.KEY`:
+
+```text
+* | where user.plan = "enterprise" | last 30d | count by event_type
+* | where user.email_domain = "acme.org" | last 7d | unique distinct_id
+users | where email_domain = "acme.org" | list
+```
+
+## Next steps
+
+- [Identity overview](/identity/overview) -- how `distinct_id` stitching works
+- [HTTP tracking API](/tracking/http-api) -- `POST /track` endpoint reference
