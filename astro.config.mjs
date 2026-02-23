@@ -10,6 +10,9 @@ export default defineConfig({
       description:
         "Headless analytics for agents and LLMs. Events in, Markdown out.",
       plugins: [starlightLlmsTxt()],
+      components: {
+        Footer: "./src/components/Footer.astro",
+      },
       social: {
         github: "https://github.com/wirelogai",
       },
