@@ -35,6 +35,11 @@ Server-enriched from the User-Agent header and request metadata. Prefixed with `
 | `_device_type` | string | `desktop`, `mobile`, `bot` | Device classification |
 | `_ip` | string | | Client IP (may be anonymized per policy) |
 | `_library` | string | `wirelog-js/1.0`, ... | SDK identifier |
+| `_ingest_origin` | string | `client`, `server`, `unknown` | Ingestion origin classification |
+| `_geo_source` | string | `cf_header`, ... | Geo enrichment source |
+| `_geo_country`, `_geo_region`, `_geo_region_code`, `_geo_city`, `_geo_continent` | string | | Geo metadata (trusted client-origin requests) |
+| `_geo_timezone`, `_geo_metro_code`, `_geo_postal_code` | string | | Additional geo metadata |
+| `_geo_latitude`, `_geo_longitude` | string | | Approximate geolocation coordinates |
 
 **Examples:**
 
@@ -122,9 +127,9 @@ These resolve to `user_properties['<key>']` on the `user_profiles` table.
 | Source | `user.*` fields | Notes |
 |---|---|---|
 | Event queries (`*`, `<event>`) | Yes | Joins `user_profiles` via stitched identity |
+| `funnel`, `retention`, `paths`, `sessions`, `lifecycle`, `stickiness` | Yes | Identity-backed sources resolve `user.*` via profile join |
 | `user "<id>"` | Yes | Joins `user_profiles` for the specified user |
 | `users` | Yes | Queries `user_profiles` directly |
-| `funnel`, `retention`, `paths`, `sessions` | No | Not supported; use event queries with `where user.*` instead |
 | `formula` | No | Event-level metrics only |
 
 **Examples:**
@@ -146,6 +151,49 @@ users | count by user.plan | top 10
 <Aside type="caution">
 Profile fields require `identify()` calls. If `user.*` filters return empty results, verify your app is sending identify calls with the expected properties.
 </Aside>
+
+## Session fields
+
+Session fields are available in identity-backed/event-backed sources. They resolve from `sessions_agg`.
+
+**Syntax:** `session.<KEY>`
+
+Common fields:
+
+- `session.start_time`, `session.end_time`
+- `session.duration`, `session.event_count`
+- `session.landing_url`, `session.referrer`, `session.referring_domain`
+- `session.utm_source`, `session.utm_medium`, `session.utm_campaign`, `session.utm_term`, `session.utm_content`
+- `session.gclid`, `session.fbclid`
+- `session.language`, `session.timezone`
+- `session.ingest_origin`, `session.geo_source`
+- `session.country`, `session.region`, `session.region_code`, `session.city`, `session.continent`
+- `session.geo_timezone`, `session.metro_code`, `session.postal_code`, `session.latitude`, `session.longitude`
+- `session.first_event`, `session.last_event`, `session.exit_url`
+
+```
+# Sessions by campaign
+sessions | where session.utm_source = "google" | last 30d | count by day
+
+# Region filter on raw events
+* | where session.region = "DE" | last 30d | count
+```
+
+## Latest stitched session fields
+
+Use `user_last_session.*` when you want to filter events by each user's **latest stitched session context** (not the event's own `session_id`).
+
+**Syntax:** `user_last_session.<KEY>`
+
+`user_last_session.*` supports the same key space as `session.*`.
+
+```
+# Backend spend attributed to latest browser/session region
+ai_usage_charged | where user_last_session.region = "DE" | last 30d | sum event_properties.amount
+
+# Campaign-attributed spend
+ai_usage_charged | where user_last_session.utm_source = "google" | last 30d | sum event_properties.amount
+```
 
 ## Identity
 

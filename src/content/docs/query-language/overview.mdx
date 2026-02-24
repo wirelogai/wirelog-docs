@@ -37,6 +37,8 @@ Full inventory:
 | Retention | `retention <event>` | Cohort retention over time |
 | Paths | `paths from <event>` | User flow analysis |
 | Sessions | `sessions` | Session-level analytics |
+| Lifecycle | `lifecycle <event>` | New/returning/resurrected/dormant status |
+| Stickiness | `stickiness <event>` | Active-days distribution |
 | User timeline | `user "<id>"` | Single user's events (quoted) |
 | Users directory | `users` | Query user profiles table |
 | Formula | `formula count(a) / count(b)` | Computed metrics across event types |
@@ -56,6 +58,8 @@ See [Sources](/query-language/sources/) for full reference.
 | Median / Percentiles | `\| median field`, `\| p90 field`, `\| p95 field`, `\| p99 field` | Distribution |
 | Group by | `\| count by day, field` | Group aggregation by time or field |
 | List | `\| list` | Return raw event rows |
+| Window | `\| window 7d` | Funnel/path completion window |
+| Depth | `\| depth 8` | Path depth limit |
 | Sort | `\| sort field desc` | Order results |
 | Limit / Top | `\| limit 100`, `\| top 20` | Cap result count |
 
@@ -90,13 +94,19 @@ Auth header: `X-API-Key: sk_...` or `X-API-Key: aat_...`
 signup | last 7d | count by day
 
 # Conversion funnel
-funnel signup -> activate -> purchase | last 30d
+funnel signup -> activate -> purchase exclude support_ticket | last 30d | window 7d
 
 # Weekly retention cohorts
 retention signup | last 90d
 
+# Session attribution trend
+sessions | last 30d | count by session.utm_source
+
 # All events from a specific company
 * | where user.email_domain = "acme.org" | last 30d | count by event_type
+
+# Backend spend by latest browser-region context
+ai_usage_charged | where user_last_session.region = "DE" | last 30d | sum event_properties.amount
 
 # Single user timeline
 user "alice@acme.org" | last 90d | list
@@ -115,7 +125,7 @@ formula count(purchase) / count(signup) | last 30d
 
 ## Next
 
-- [Sources](/query-language/sources/) -- event, funnel, retention, paths, sessions, user, users, formula
+- [Sources](/query-language/sources/) -- event, funnel, retention, paths, sessions, lifecycle, stickiness, user, users, formula
 - [Stages](/query-language/stages/) -- where, time ranges, aggregations, sort, limit
 - [Fields](/query-language/fields/) -- core, system, properties, profile fields, identity
 - [Examples](/query-language/examples/) -- 15+ annotated real-world queries

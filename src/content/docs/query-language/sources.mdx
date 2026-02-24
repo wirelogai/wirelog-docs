@@ -1,6 +1,6 @@
 ---
 title: Sources
-description: Full reference for event, funnel, retention, paths, sessions, user, users, and formula sources.
+description: Full reference for event, funnel, retention, paths, sessions, lifecycle, stickiness, user, users, and formula sources.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
@@ -42,12 +42,12 @@ Multi-step conversion analysis. Measures how many users complete each step in se
 **Syntax:**
 
 ```
-funnel <step1> -> <step2> -> <step3> [-> ...]
+funnel <step1> -> <step2> -> <step3> [-> ...] [exclude <event>[, <event>...]]
 ```
 
 Requires at least 2 steps. Supports `| by <field>` for breakout by a dimension. Supports `| window <duration>` to set the completion window (default: 30 days).
 
-**Description:** Computes a funnel using ClickHouse `windowFunnel`. For each user (`distinct_id`), it tracks the furthest step reached within the window. Returns step number and user count per step. Uses stitched identity -- anonymous events are attributed if an identify mapping exists.
+**Description:** Computes ordered funnel progression by stitched user (`distinct_id`) and returns step number + user count. Supports between-step exclusion via `exclude ...`: users are disqualified only when excluded events occur between completed steps.
 
 **Examples:**
 
@@ -60,6 +60,9 @@ funnel signup -> activate -> purchase | last 30d | by _platform
 
 # Funnel with 7-day completion window
 funnel signup -> first_project -> first_query | last 90d | window 7d
+
+# Funnel with between-step exclusion
+funnel signup -> purchase exclude support_ticket | last 30d | window 7d
 ```
 
 <Aside type="note">
@@ -109,9 +112,9 @@ paths from <event>
 paths to <event>
 ```
 
-**Description:** `paths from` collects event sequences starting at `<event>` for each user, within a 1-hour window after the start event. `paths to` collects sequences leading up to `<event>` within 1 hour before it. Results are grouped by path (array of event types) with user counts. Default depth is 5 steps. Default limit is 20 paths.
+**Description:** `paths from` collects event sequences starting at `<event>` for each user; `paths to` collects sequences leading up to `<event>`. Results are grouped by path (array of event types) with user counts. Default depth is 5 steps, default limit is 20 paths, and default path window is 1 hour.
 
-Supports `| depth <N>` to control path length. Supports `| limit <N>` to control number of paths returned.
+Supports `| window <duration>` to control forward/backward path window, `| depth <N>` to control path length, and `| limit <N>` to control number of paths returned.
 
 **Examples:**
 
@@ -136,9 +139,9 @@ Session-level analytics. Groups events by `session_id` and computes per-session 
 sessions
 ```
 
-**Description:** Aggregates events into sessions (grouped by `session_id` + `distinct_id`). Default output: session count, average duration (seconds), and average events per session, grouped by day. Requires events to have `session_id` set (the Script Tag and TypeScript client set this automatically with a 30-minute inactivity timeout).
+**Description:** Aggregates events into sessions (`sessions_agg`). Default output: session count, average duration (seconds), and average events per session, grouped by day. Requires events to have `session_id` set (the Script Tag and TypeScript client set this automatically with a 30-minute inactivity timeout).
 
-Supports time granularity grouping (`| count by day`, `| count by week`).
+Supports `session.*` filters/grouping (attribution, landing/exit, language, geo, origin) and time granularity grouping (`| count by day`, `| count by week`).
 
 **Examples:**
 
@@ -151,6 +154,50 @@ sessions | last 12w | count by week
 
 # Sessions for a specific time range
 sessions | from 2026-01-01 to 2026-02-01
+
+# Sessions by campaign
+sessions | last 30d | count by session.utm_source
+
+# Sessions by region
+sessions | last 30d | count by session.region
+```
+
+## Lifecycle
+
+Lifecycle status analysis for one event type.
+
+**Syntax:**
+
+```
+lifecycle <event>
+```
+
+**Description:** Classifies active users per period into `New`, `Returning`, `Resurrected`, and `Dormant`. Supports `| by day|week|month` and `| where` filters.
+
+**Examples:**
+
+```
+lifecycle page_view | last 12w | by week
+lifecycle core_usage | last 30d | by day
+```
+
+## Stickiness
+
+Active-day distribution for one event type.
+
+**Syntax:**
+
+```
+stickiness <event>
+```
+
+**Description:** Counts users by number of active days in the selected window.
+
+**Examples:**
+
+```
+stickiness page_view | last 30d
+stickiness core_usage | last 12w
 ```
 
 ## User timeline
@@ -226,7 +273,7 @@ formula <metric>(<event>[, field]) <op> <metric>(<event>[, field]) [<op> ...]
 
 Supported functions: `count`, `unique`, `sum`, `avg`. Supported operators: `+`, `-`, `*`, `/`.
 
-**Description:** Each metric reference queries a specific event type. The formula combines them with arithmetic. Useful for conversion rates, ratios, and computed KPIs. For `sum` and `avg`, a second argument specifies the field. For `unique`, an optional second argument specifies the field (defaults to `user_id`).
+**Description:** Each metric reference queries a specific event type. The formula combines them with arithmetic. Useful for conversion rates, ratios, and computed KPIs. For `sum` and `avg`, a second argument specifies the field. For `unique`, the field argument is optional (defaults to stitched identity when omitted).
 
 Supports `| by <granularity>` for time-series output.
 

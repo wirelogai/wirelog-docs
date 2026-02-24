@@ -237,6 +237,14 @@ Mean purchase amount. Use `median` for a distribution-resistant measure:
 <purchase_event> | last 30d | median event_properties.amount
 ```
 
+### Backend spend by latest session context
+
+```
+<spend_event> | where user_last_session.region = "DE" | last 30d | sum event_properties.amount
+```
+
+Use this when spend events are server-originated but you still want latest stitched browser/session context (campaign, locale, geo).
+
 ## Sessions and paths
 
 ### Daily session metrics
@@ -254,6 +262,14 @@ sessions | last 12w | count by week
 ```
 
 Session count per week. Track engagement trends.
+
+### Session attribution breakdown
+
+```
+sessions | last 30d | count by session.utm_source
+```
+
+Campaign/source mix from session-level attribution fields.
 
 ### User paths from an event
 

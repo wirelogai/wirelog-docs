@@ -42,7 +42,7 @@ In browsers, the client automatically manages identity using the same localStora
 | `session_id` | In-memory | Regenerated after 30 minutes of inactivity |
 | `user_id` | `wl_uid` in localStorage | Set via `identify()`, cleared via `reset()` |
 
-Every `track()` call in the browser auto-injects `device_id`, `session_id`, and `user_id`. You don't need to pass them.
+Every `track()` call in the browser auto-injects `device_id`, `session_id`, and `user_id`, plus event context (`url`, `language`, `timezone`) and `clientOriginated: true`.
 
 ### Using with the Script Tag
 
@@ -96,6 +96,7 @@ interface TrackEvent {
   user_id?: string;
   device_id?: string;
   session_id?: string;
+  clientOriginated?: boolean;
   time?: string;             // RFC 3339. Auto-generated if omitted
   event_properties?: Record<string, unknown>;
   user_properties?: Record<string, unknown>;
@@ -151,7 +152,7 @@ wl.init({ apiKey: "pk_your_public_key" });
 wl.track(event: TrackEvent): Promise<TrackResult>
 ```
 
-Track a single event. Auto-generates `insert_id` and `time` if not provided. In browsers, auto-injects `device_id`, `session_id`, and `user_id`.
+Track a single event. Auto-generates `insert_id` and `time` if not provided. In browsers, auto-injects `device_id`, `session_id`, `user_id`, event context, and `clientOriginated: true`.
 
 ```ts
 await wl.track({
@@ -168,7 +169,7 @@ await wl.track({
 wl.trackBatch(events: TrackEvent[]): Promise<TrackResult>
 ```
 
-Track up to 2000 events in one request. In browsers, auto-injects identity per event.
+Track up to 2000 events in one request. In browsers, auto-injects identity/context per event and marks the request/events as client-originated.
 
 ```ts
 await wl.trackBatch([

@@ -31,7 +31,9 @@ Lightweight browser SDK. No build step. Single script tag. Sends events via `sen
 
 - Tracks `page_view` on page load (unless `data-auto="false"`)
 - SPA mode (`data-spa="true"`) intercepts `pushState`, `replaceState`, and `popstate` to fire `page_view` on navigation
-- Auto-captured `page_view` properties: `url`, `referrer`, `title`
+- Auto-injects event context on all tracked events: `url`, `language`, `timezone`
+- Marks tracked events as `clientOriginated: true`
+- Auto-captured `page_view` properties include: `url`, `previous_url`, `referrer`, `title`, `referring_domain`, viewport/screen size, attribution params (`utm_*`, `gclid`, `fbclid`)
 
 ---
 
@@ -48,7 +50,7 @@ Lightweight browser SDK. No build step. Single script tag. Sends events via `sen
 | Storage | Key | Persistence |
 |---|---|---|
 | `device_id` | `wl_did` in localStorage | Permanent until `reset()` or `optOut()` |
-| `session_id` | In-memory | Regenerated after 30 minutes of inactivity |
+| `session_id` | `wl_sid` in sessionStorage | Reused in-tab, regenerated after 30 minutes of inactivity |
 | `user_id` | `wl_uid` in localStorage | Set via `identify()`, cleared via `reset()` |
 
 ---
