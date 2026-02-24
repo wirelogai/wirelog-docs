@@ -21,14 +21,6 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3.35-3.35a5 5 0 0 0-7.07-7.07L12 4"/><path d="M14 11a5 5 0 0 0-7.54-.54L3.11 13.8a5 5 0 0 0 7.07 7.07L12 20"/></svg>
       <span id="copy-md-link-label">Copy Markdown Link</span>
     </button>
-    <a class="llm-btn" id="open-claude-btn" href="#" target="_blank" rel="noopener" title="Open in Claude">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-      Open in Claude
-    </a>
-    <a class="llm-btn" id="open-chatgpt-btn" href="#" target="_blank" rel="noopener" title="Open in ChatGPT">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-      Open in ChatGPT
-    </a>
   </div>
 </div>
 
@@ -83,8 +75,6 @@
     const viewMarkdownBtn = document.getElementById('view-md-btn') as HTMLAnchorElement | null;
     const copyMarkdownLinkBtn = document.getElementById('copy-md-link-btn');
     const copyMarkdownLinkLabel = document.getElementById('copy-md-link-label');
-    const claudeBtn = document.getElementById('open-claude-btn') as HTMLAnchorElement | null;
-    const chatgptBtn = document.getElementById('open-chatgpt-btn') as HTMLAnchorElement | null;
     const markdownURL = getMarkdownURL();
 
     if (viewMarkdownBtn) {
@@ -107,22 +97,6 @@
           copyMarkdownLinkLabel.textContent = 'Copied!';
           setTimeout(() => { copyMarkdownLinkLabel.textContent = 'Copy Markdown Link'; }, 1500);
         });
-      });
-    }
-
-    if (claudeBtn) {
-      claudeBtn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        const md = await getPageMarkdown();
-        window.open(`https://claude.ai/new?q=${encodeURIComponent(md)}`, '_blank');
-      });
-    }
-
-    if (chatgptBtn) {
-      chatgptBtn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        const md = await getPageMarkdown();
-        window.open(`https://chatgpt.com/?q=${encodeURIComponent(md)}`, '_blank');
       });
     }
   });
