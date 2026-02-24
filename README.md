@@ -11,7 +11,7 @@ Built with [Astro Starlight](https://starlight.astro.build/). Deployed to `docs.
 - **Per-page markdown routes** — every docs page is available as `/<slug>.md` (for example `/tracking/script-tag.md`)
 - **Markdown actions in page header** — copy page markdown, open markdown view, and copy markdown link
 - **Full query language reference** — sources, stages, fields, annotated examples
-- **Agent integration docs** — MCP server setup, Claude Code skills, agent analytics patterns
+- **Agent integration docs** — Claude Code skills, agent analytics patterns
 
 ## Development
 
@@ -31,7 +31,7 @@ src/content/docs/
 ├── tracking/              # HTTP API, JS SDK, Python/Node clients
 ├── query-language/        # DSL overview, sources, stages, fields, examples
 ├── identity/              # Identity stitching, /identify API
-├── agents/                # MCP, skills, agent patterns
+├── agents/                # Skills, agent patterns
 ├── guides/                # SaaS metrics, migration from competitors
 └── reference/             # API reference, pricing
 ```

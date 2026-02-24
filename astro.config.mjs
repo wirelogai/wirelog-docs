@@ -58,7 +58,6 @@ export default defineConfig({
           label: "Agents",
           items: [
             { label: "Overview", slug: "agents/overview" },
-            { label: "MCP Server", slug: "agents/mcp-server" },
             { label: "Claude Code Skills", slug: "agents/skills" },
             { label: "Agent Patterns", slug: "agents/patterns" },
           ],

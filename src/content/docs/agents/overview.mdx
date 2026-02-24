@@ -1,27 +1,21 @@
 ---
 title: "Agents"
-description: "Why WireLog is built for AI agents. MCP, skills, and patterns."
+description: "Why WireLog is built for AI agents. Skills, HTTP, and patterns."
 ---
 
 Dashboards are for humans. Agents cannot click buttons, read charts, or navigate UIs. They need structured text they can parse, reason over, and act on.
 
 WireLog returns Markdown tables from queries. Every analytics result is text an agent can consume directly.
 
-## Three integration paths
+## Two integration paths
 
-### 1. MCP Server
-
-The [WireLog MCP server](/agents/mcp-server) exposes analytics as native tools via the Model Context Protocol. Agents call `wirelog_query`, `wirelog_track`, `wirelog_identify`, and `wirelog_list_events` directly.
-
-Works with Claude Desktop, Claude Code, and any MCP-compatible agent.
-
-### 2. Claude Code Skills
+### 1. Claude Code Skills
 
 [SKILL.md files](/agents/skills) teach coding agents the WireLog DSL, instrumentation patterns, and project setup. The agent reads the skill on activation and gains domain knowledge -- no tool registration required.
 
 Three skills: `wirelog` (query), `wirelog-instrument` (add tracking to code), `wirelog-setup` (new project setup).
 
-### 3. Direct HTTP
+### 2. Direct HTTP
 
 Any agent can `POST /query` and get Markdown back:
 
@@ -84,6 +78,5 @@ Step 5: Recommend
 
 ## Next steps
 
-- [MCP Server](/agents/mcp-server) -- install and configure the MCP server for agent tool access
 - [Claude Code Skills](/agents/skills) -- install WireLog skills for coding agents
 - [Agent Patterns](/agents/patterns) -- daily briefings, self-tracking, anomaly detection, and more
