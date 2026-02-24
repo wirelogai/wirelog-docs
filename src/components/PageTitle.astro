@@ -1,7 +1,7 @@
 ---
 /**
  * Custom PageTitle override for Starlight.
- * Renders the page title followed by LLM action buttons (Copy as Markdown, Open in Claude/ChatGPT, llms.txt links).
+ * Renders the page title followed by LLM action buttons.
  */
 ---
 
@@ -13,6 +13,14 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
       <span id="copy-md-label">Copy as Markdown</span>
     </button>
+    <a class="llm-btn" id="view-md-btn" href="#" target="_blank" rel="noopener" title="Open the markdown version">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      View as markdown
+    </a>
+    <button class="llm-btn" id="copy-md-link-btn" title="Copy the markdown URL for this page">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3.35-3.35a5 5 0 0 0-7.07-7.07L12 4"/><path d="M14 11a5 5 0 0 0-7.54-.54L3.11 13.8a5 5 0 0 0 7.07 7.07L12 20"/></svg>
+      <span id="copy-md-link-label">Copy Markdown Link</span>
+    </button>
     <a class="llm-btn" id="open-claude-btn" href="#" target="_blank" rel="noopener" title="Open in Claude">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       Open in Claude
@@ -22,15 +30,25 @@
       Open in ChatGPT
     </a>
   </div>
-  <div class="llm-links">
-    <a href="/llms.txt" class="llm-link">llms.txt</a>
-    <span class="llm-sep">/</span>
-    <a href="/llms-full.txt" class="llm-link">llms-full.txt</a>
-  </div>
 </div>
 
 <script>
-  function getPageMarkdown(): string {
+  function getMarkdownPathname(pathname: string): string {
+    const trimmed = pathname.replace(/\/+$/, '');
+    if (!trimmed) {
+      return '/index.md';
+    }
+    if (trimmed.endsWith('.md')) {
+      return trimmed;
+    }
+    return `${trimmed}.md`;
+  }
+
+  function getMarkdownURL(): URL {
+    return new URL(getMarkdownPathname(window.location.pathname), window.location.origin);
+  }
+
+  function getFallbackMarkdown(): string {
     const content = document.querySelector('[data-pagefind-body]') ||
                     document.querySelector('main') ||
                     document.querySelector('article');
@@ -44,15 +62,38 @@
     return `# ${title}\n\nSource: ${url}\n\n${clone.textContent?.trim() || ''}`;
   }
 
+  async function getPageMarkdown(): Promise<string> {
+    const markdownURL = getMarkdownURL();
+    try {
+      const response = await fetch(markdownURL.toString(), {
+        headers: { Accept: 'text/markdown, text/plain' }
+      });
+      if (response.ok) {
+        return await response.text();
+      }
+    } catch (_) {
+      // Ignore fetch errors and fall back to DOM extraction.
+    }
+    return getFallbackMarkdown();
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     const copyBtn = document.getElementById('copy-md-btn');
     const copyLabel = document.getElementById('copy-md-label');
+    const viewMarkdownBtn = document.getElementById('view-md-btn') as HTMLAnchorElement | null;
+    const copyMarkdownLinkBtn = document.getElementById('copy-md-link-btn');
+    const copyMarkdownLinkLabel = document.getElementById('copy-md-link-label');
     const claudeBtn = document.getElementById('open-claude-btn') as HTMLAnchorElement | null;
     const chatgptBtn = document.getElementById('open-chatgpt-btn') as HTMLAnchorElement | null;
+    const markdownURL = getMarkdownURL();
+
+    if (viewMarkdownBtn) {
+      viewMarkdownBtn.href = markdownURL.toString();
+    }
 
     if (copyBtn && copyLabel) {
-      copyBtn.addEventListener('click', () => {
-        const md = getPageMarkdown();
+      copyBtn.addEventListener('click', async () => {
+        const md = await getPageMarkdown();
         navigator.clipboard.writeText(md).then(() => {
           copyLabel.textContent = 'Copied!';
           setTimeout(() => { copyLabel.textContent = 'Copy as Markdown'; }, 1500);
@@ -60,18 +101,27 @@
       });
     }
 
+    if (copyMarkdownLinkBtn && copyMarkdownLinkLabel) {
+      copyMarkdownLinkBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(markdownURL.toString()).then(() => {
+          copyMarkdownLinkLabel.textContent = 'Copied!';
+          setTimeout(() => { copyMarkdownLinkLabel.textContent = 'Copy Markdown Link'; }, 1500);
+        });
+      });
+    }
+
     if (claudeBtn) {
-      claudeBtn.addEventListener('click', (e) => {
+      claudeBtn.addEventListener('click', async (e) => {
         e.preventDefault();
-        const md = getPageMarkdown();
+        const md = await getPageMarkdown();
         window.open(`https://claude.ai/new?q=${encodeURIComponent(md)}`, '_blank');
       });
     }
 
     if (chatgptBtn) {
-      chatgptBtn.addEventListener('click', (e) => {
+      chatgptBtn.addEventListener('click', async (e) => {
         e.preventDefault();
-        const md = getPageMarkdown();
+        const md = await getPageMarkdown();
         window.open(`https://chatgpt.com/?q=${encodeURIComponent(md)}`, '_blank');
       });
     }
@@ -127,27 +177,5 @@
 
   .llm-btn svg {
     flex-shrink: 0;
-  }
-
-  .llm-links {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-size: 0.8rem;
-  }
-
-  .llm-link {
-    color: var(--sl-color-gray-3);
-    text-decoration: none;
-    font-family: inherit;
-    transition: color 0.15s;
-  }
-
-  .llm-link:hover {
-    color: var(--sl-color-text-accent);
-  }
-
-  .llm-sep {
-    color: var(--sl-color-gray-5);
   }
 </style>

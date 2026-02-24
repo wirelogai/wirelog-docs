@@ -7,8 +7,9 @@ Built with [Astro Starlight](https://starlight.astro.build/). Deployed to `docs.
 ## Features
 
 - **Zero JavaScript output** — server-rendered HTML, ideal for AI crawlers
-- **Auto-generated `/llms.txt`** — via `starlight-llms-txt` plugin, makes all doc content available to LLMs in one fetch
-- **Copy-as-LLM dropdown** — lets users copy page content as Markdown or open directly in ChatGPT/Claude
+- **`/llms.txt` markdown directory** — table of contents linking every docs page `.md` URL, plus intro-page content
+- **Per-page markdown routes** — every docs page is available as `/<slug>.md` (for example `/tracking/script-tag.md`)
+- **Markdown actions in page header** — copy page markdown, open markdown view, and copy markdown link
 - **Full query language reference** — sources, stages, fields, annotated examples
 - **Agent integration docs** — MCP server setup, Claude Code skills, agent analytics patterns
 
@@ -38,5 +39,3 @@ src/content/docs/
 ## Deployment
 
 Build produces static files in `dist/`. Deploy to any static host (Cloudflare Pages, Vercel, Netlify).
-
-The `starlight-llms-txt` plugin generates `/llms.txt` at build time from all doc pages.
