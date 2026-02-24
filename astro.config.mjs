@@ -100,6 +100,20 @@ export default defineConfig({
             href: "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap",
           },
         },
+        {
+          tag: "meta",
+          attrs: {
+            property: "og:image",
+            content: "https://docs.wirelog.ai/og-docs.png",
+          },
+        },
+        {
+          tag: "meta",
+          attrs: {
+            name: "twitter:image",
+            content: "https://docs.wirelog.ai/og-docs.png",
+          },
+        },
       ],
       customCss: ["./src/styles/custom.css"],
     }),
