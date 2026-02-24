@@ -44,12 +44,17 @@ In browsers, the client automatically manages identity using the same localStora
 
 Every `track()` call in the browser auto-injects `device_id`, `session_id`, and `user_id`, plus event context (`url`, `language`, `timezone`) and `clientOriginated: true`.
 
+Browser `track()` calls are buffered by default:
+- flush on 10 events or every 2 seconds
+- retries transient failures with backoff (up to 3 retries)
+- flush on `visibilitychange` (hidden) and `pagehide`
+
 ### Using with the Script Tag
 
 Both the TypeScript client and the [Script Tag](/tracking/script-tag) read and write the same `wl_did` and `wl_uid` localStorage keys. This means:
 
-- The Script Tag handles automatic `page_view` tracking, batching, and `sendBeacon` delivery
-- The TypeScript client handles typed, explicit event tracking in your React/Vue/Svelte app
+- The Script Tag handles automatic `page_view` tracking and delivery
+- The TypeScript client handles typed event tracking in your React/Vue/Svelte app (with buffered browser `track()` delivery)
 - **Identity is shared.** Calling `identify()` from either SDK persists the `user_id` for both
 
 ```ts
@@ -105,6 +110,7 @@ interface TrackEvent {
 
 interface TrackResult {
   accepted: number;
+  buffered?: boolean;
 }
 
 interface IdentifyParams {
@@ -155,12 +161,13 @@ wl.track(event: TrackEvent): Promise<TrackResult>
 Track a single event. Auto-generates `insert_id` and `time` if not provided. In browsers, auto-injects `device_id`, `session_id`, `user_id`, event context, and `clientOriginated: true`.
 
 ```ts
-await wl.track({
+const result = await wl.track({
   event_type: "purchase",
   user_id: "u_123",
   event_properties: { plan: "pro", amount: 49 },
 });
-// { accepted: 1 }
+// Browser: { accepted: 1, buffered: true } (queued locally)
+// Node:    { accepted: 1 } (API response)
 ```
 
 ### trackBatch()
@@ -169,7 +176,7 @@ await wl.track({
 wl.trackBatch(events: TrackEvent[]): Promise<TrackResult>
 ```
 
-Track up to 2000 events in one request. In browsers, auto-injects identity/context per event and marks the request/events as client-originated.
+Track up to 2000 events in one request. In browsers, auto-injects identity/context per event, marks the request/events as client-originated, and sends immediately as one API request.
 
 ```ts
 await wl.trackBatch([
@@ -177,6 +184,20 @@ await wl.trackBatch([
   { event_type: "click", user_id: "u_1", event_properties: { button: "cta" } },
 ]);
 // { accepted: 2 }
+```
+
+### flush()
+
+```ts
+wl.flush(): Promise<TrackResult>
+```
+
+Flush queued browser `track()` events immediately.
+
+```ts
+await wl.flush();
+// Browser: { accepted: N }
+// Node: { accepted: 0 }
 ```
 
 ### query()
@@ -244,13 +265,16 @@ console.log(wl.userId);   // "alice@acme.org" or null
 
 ## Error handling
 
-Non-2xx responses throw `WireLogError`.
+`trackBatch()`, `identify()`, and `query()` throw `WireLogError` on non-2xx responses.
+
+In browsers, `track()` is buffered by default and does not throw transport errors at call time.
+Use `flush()` when you want to force immediate delivery.
 
 ```ts
 import { wl, WireLogError } from "wirelog";
 
 try {
-  await wl.track({ event_type: "test" });
+  await wl.trackBatch([{ event_type: "test" }]);
 } catch (e) {
   if (e instanceof WireLogError) {
     console.error(e.status);   // HTTP status code
