@@ -1,6 +1,6 @@
 ---
 title: Sources
-description: Full reference for event, funnel, retention, paths, sessions, lifecycle, stickiness, user, users, and formula sources.
+description: Full reference for event, funnel, retention, paths, sessions, lifecycle, stickiness, user, users, formula, and fields sources.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
@@ -114,7 +114,7 @@ paths to <event>
 
 **Description:** `paths from` collects event sequences starting at `<event>` for each user; `paths to` collects sequences leading up to `<event>`. Results are grouped by path (array of event types) with user counts. Default depth is 5 steps, default limit is 20 paths, and default path window is 1 hour.
 
-Supports `| window <duration>` to control forward/backward path window, `| depth <N>` to control path length, and `| limit <N>` to control number of paths returned.
+Supports `| window <duration>` to control forward/backward path window, `| depth <N>` to control path length, `| limit <N>` to control number of paths returned, and `| by <field>` to use a field value as the path node label instead of event_type.
 
 **Examples:**
 
@@ -127,7 +127,17 @@ paths to purchase | last 30d
 
 # Longer paths with more results
 paths from signup | last 30d | depth 8 | limit 50
+
+# Navigation flow by URL path (instead of repeated event_type names)
+paths from page_view | last 30d | by _path
+
+# Path flow by country
+paths from page_view | last 30d | by _country
 ```
+
+<Aside type="tip">
+Use `| by _path` when all events in a path are the same type (e.g. `page_view`). Without it, you'd see `page_view -> page_view -> page_view`; with it, you see `/home -> /pricing -> /signup`.
+</Aside>
 
 ## Sessions
 
@@ -292,4 +302,30 @@ formula sum(purchase, event_properties.amount) / unique(purchase) | last 30d
 
 <Aside type="note">
 Formula queries are event-level metrics. They do not use stitched identity for `count`. For unique user counts with identity stitching, prefer event queries with `| unique distinct_id`.
+</Aside>
+
+## Fields introspection
+
+Discover all available fields at runtime, including dynamic property keys from your data.
+
+**Syntax:**
+
+```
+fields
+```
+
+**Description:** Returns a list of all queryable fields: system/core fields, session fields, user profile fields, plus any `event_properties.*` and `user_properties.*` keys actually present in your data within the time range. Supports time range stages.
+
+**Examples:**
+
+```
+# All fields from the last 7 days
+fields | last 7d
+
+# All fields from the last 30 days
+fields | last 30d
+```
+
+<Aside type="tip">
+Run `fields | last 7d` when working with a new project to discover what properties are available for filtering and grouping.
 </Aside>

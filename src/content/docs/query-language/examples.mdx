@@ -41,6 +41,14 @@ Alphabetical list of all event types with counts. Use `limit 10000` to avoid tru
 
 Quick check of what is firing right now.
 
+### Discover available fields
+
+```
+fields | last 7d
+```
+
+Lists all system fields plus dynamic `event_properties.*` and `user_properties.*` keys present in your data. Run this to understand what's available for filtering and grouping.
+
 ## Counts and trends
 
 ### Daily event count
@@ -66,6 +74,22 @@ Unique users (stitched identity) who triggered the event, grouped by week.
 ```
 
 Total events split by `web`, `android`, `ios`. Add `| top 10` if there are many values.
+
+### Top pages by path
+
+```
+page_view | last 30d | count by _path | top 20
+```
+
+Most visited URL paths. Uses the promoted `_path` field (extracted from event URL during enrichment).
+
+### Events by country
+
+```
+* | last 30d | count by _country | top 10
+```
+
+Event volume by country. `_country` is a short alias for `_geo_country`.
 
 ### Filtered count with multiple conditions
 
@@ -263,6 +287,14 @@ sessions | last 12w | count by week
 
 Session count per week. Track engagement trends.
 
+### Top landing pages
+
+```
+sessions | last 30d | count by session.landing_path | top 20
+```
+
+Most common landing page paths by session count.
+
 ### Session attribution breakdown
 
 ```
@@ -294,3 +326,27 @@ paths from <onboarding_start> | last 30d | depth 6 | limit 50
 ```
 
 Increase depth and result count for broader exploration.
+
+### Navigation flow by URL path
+
+```
+paths from page_view | last 30d | by _path
+```
+
+Use `| by _path` to see URL paths as node labels instead of event type names. Without it, page-view-only flows show `page_view -> page_view -> page_view`; with it, you see `/home -> /pricing -> /signup`.
+
+### Navigation flow with IDs normalized
+
+```
+paths from page_view | last 30d | by _path_clean
+```
+
+Like `_path` but with dynamic ID segments replaced by `{id}`. Instead of `/users/123/settings -> /users/456/settings` you see `/users/{id}/settings -> /users/{id}/settings`.
+
+### Top pages by normalized path
+
+```
+page_view | last 30d | count by _path_clean | top 20
+```
+
+Groups pages with dynamic IDs (UUIDs, numeric IDs, hex hashes, etc.) together. For example, `/dashboard/focus/550e8400-...` and `/dashboard/focus/a1b2c3d4-...` both become `/dashboard/focus/{id}`.

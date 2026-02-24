@@ -21,7 +21,41 @@ Present on every event. Usable in all event-based queries.
 | `time` | datetime | Event timestamp (client-provided or server `now()`) |
 | `insert_id` | string | Deduplication key (auto-generated if not provided) |
 
-## System fields
+## Page and content fields
+
+Promoted from `event_properties` during enrichment. Available as first-class fields for filtering and grouping.
+
+| Field | Type | Description |
+|---|---|---|
+| `_url` | string | Full page URL (from `event_properties.url`) |
+| `_path` | string | URL path component (extracted from `_url`) |
+| `_path_clean` | string | ID-normalized path -- UUIDs, numeric IDs, hex strings, etc. replaced with `{id}` (e.g. `/users/123/settings` → `/users/{id}/settings`) |
+| `_hostname` | string | URL hostname (extracted from `_url`) |
+| `_title` | string | Page title (from `event_properties.title`) |
+| `_referrer` | string | Referrer URL (from `event_properties.referrer`) |
+| `_referrer_domain` | string | Referrer domain (from `event_properties.referring_domain`) |
+
+**Examples:**
+
+```
+# Top pages by path
+page_view | last 30d | count by _path | top 20
+
+# Top pages with IDs normalized (groups /users/123 and /users/456 together)
+page_view | last 30d | count by _path_clean | top 20
+
+# Filter by specific page
+page_view | where _path = "/pricing" | last 7d | count by day
+
+# Traffic by hostname
+* | last 30d | count by _hostname
+```
+
+<Aside type="tip">
+Use `_path_clean` when paths contain dynamic ID segments (UUIDs, numeric IDs, hex hashes, etc.). It normalizes `/dashboard/focus/550e8400-e29b-...` to `/dashboard/focus/{id}`, which is much more useful for grouping and analytics. The raw `_path` is always preserved.
+</Aside>
+
+## Device fields
 
 Server-enriched from the User-Agent header and request metadata. Prefixed with `_`.
 
@@ -33,13 +67,6 @@ Server-enriched from the User-Agent header and request metadata. Prefixed with `
 | `_os_version` | string | `14.2`, `10`, ... | OS version |
 | `_platform` | string | `web`, `android`, `ios` | Platform (detected from UA) |
 | `_device_type` | string | `desktop`, `mobile`, `bot` | Device classification |
-| `_ip` | string | | Client IP (may be anonymized per policy) |
-| `_library` | string | `wirelog-typescript/1.0`, ... | SDK identifier |
-| `_ingest_origin` | string | `client`, `server`, `unknown` | Ingestion origin classification |
-| `_geo_source` | string | `cf_header`, ... | Geo enrichment source |
-| `_geo_country`, `_geo_region`, `_geo_region_code`, `_geo_city`, `_geo_continent` | string | | Geo metadata (trusted client-origin requests) |
-| `_geo_timezone`, `_geo_metro_code`, `_geo_postal_code` | string | | Additional geo metadata |
-| `_geo_latitude`, `_geo_longitude` | string | | Approximate geolocation coordinates |
 
 **Examples:**
 
@@ -53,6 +80,45 @@ Server-enriched from the User-Agent header and request metadata. Prefixed with `
 # Filter by browser
 page_view | where _browser = "Chrome" | last 7d | count
 ```
+
+## Geo fields
+
+Enriched from client IP or trusted headers.
+
+| Field | Alias | Description |
+|---|---|---|
+| `_geo_country` | `_country` | Country code |
+| `_geo_region` | `_region` | Region/state |
+| `_geo_region_code` | `_region_code` | Region code |
+| `_geo_city` | `_city` | City |
+| `_geo_continent` | `_continent` | Continent |
+| `_geo_timezone` | `_timezone` | Timezone |
+| `_geo_metro_code` | `_metro_code` | Metro code |
+| `_geo_postal_code` | `_postal_code` | Postal code |
+| `_geo_latitude` | `_latitude` | Latitude |
+| `_geo_longitude` | `_longitude` | Longitude |
+| `_geo_source` | | Geo enrichment source (e.g. `cf_header`) |
+
+Short aliases (e.g. `_country`) resolve to canonical field names (e.g. `_geo_country`) at compile time.
+
+**Examples:**
+
+```
+# Events by country (using short alias)
+* | last 30d | count by _country | top 10
+
+# Region filter
+* | where _country = "US" | last 30d | count by _region | top 10
+```
+
+## Other system fields
+
+| Field | Type | Description |
+|---|---|---|
+| `_ip` | string | Client IP (may be anonymized per policy) |
+| `_ua` | string | Raw User-Agent string |
+| `_library` | string | SDK identifier (e.g. `wirelog-typescript/1.0`) |
+| `_ingest_origin` | string | Ingestion origin: `client`, `server`, `unknown` |
 
 ## Event properties
 
@@ -162,14 +228,14 @@ Common fields:
 
 - `session.start_time`, `session.end_time`
 - `session.duration`, `session.event_count`
-- `session.landing_url`, `session.referrer`, `session.referring_domain`
+- `session.landing_url`, `session.landing_path`, `session.landing_path_clean`, `session.landing_hostname`, `session.referrer`, `session.referring_domain`
 - `session.utm_source`, `session.utm_medium`, `session.utm_campaign`, `session.utm_term`, `session.utm_content`
 - `session.gclid`, `session.fbclid`
 - `session.language`, `session.timezone`
 - `session.ingest_origin`, `session.geo_source`
 - `session.country`, `session.region`, `session.region_code`, `session.city`, `session.continent`
 - `session.geo_timezone`, `session.metro_code`, `session.postal_code`, `session.latitude`, `session.longitude`
-- `session.first_event`, `session.last_event`, `session.exit_url`
+- `session.first_event`, `session.last_event`, `session.exit_url`, `session.exit_path`, `session.exit_path_clean`
 
 ```
 # Sessions by campaign
@@ -220,6 +286,16 @@ signup | last 12w | unique distinct_id by week
 ```
 
 **Pre-identify attribution:** Events tracked before an `identify()` call are attributed retroactively. Once a device-to-user mapping exists in `device_user_map`, queries using `distinct_id` will include the anonymous events from that device.
+
+## Field introspection
+
+Use the `fields` source to discover all available fields at runtime:
+
+```
+fields | last 7d
+```
+
+Returns system/core fields plus dynamic `event_properties.*` and `user_properties.*` keys actually present in your data. Useful for LLMs and agents to discover what fields are available before writing queries.
 
 ## Property type handling
 

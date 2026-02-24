@@ -342,7 +342,7 @@ Default: 5 steps.
 
 ### by (standalone)
 
-Breakout dimension for funnel or retention results. Not an aggregation grouping.
+Breakout dimension for funnel or retention results. For paths, `| by <field>` changes the path node label from `event_type` to the specified field value.
 
 ```
 | by <field>
@@ -354,6 +354,9 @@ Breakout dimension for funnel or retention results. Not an aggregation grouping.
 ```
 # Funnel with 7-day window, broken out by platform
 funnel signup -> activate -> purchase | last 30d | window 7d | by _platform
+
+# Path flow labeled by URL path instead of event_type
+paths from page_view | last 30d | by _path
 
 # Paths with 8-step depth
 paths from signup | last 30d | depth 8
