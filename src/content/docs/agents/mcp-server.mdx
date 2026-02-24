@@ -6,18 +6,18 @@ description: "Connect WireLog to AI agents via the Model Context Protocol."
 TypeScript MCP server that exposes WireLog as native tools for AI agents. Uses stdio transport.
 
 **GitHub:** [github.com/wirelogai/wirelog-mcp](https://github.com/wirelogai/wirelog-mcp)
-**Package:** `@wirelogai/mcp` on npm
+**Package:** `wirelog-mcp` on npm
 
 ## Install
 
 ```bash
-npm install -g @wirelogai/mcp
+npm install -g wirelog-mcp
 ```
 
 Or run without installing:
 
 ```bash
-npx @wirelogai/mcp
+npx wirelog-mcp
 ```
 
 ## Configuration
@@ -36,7 +36,7 @@ Add to `claude_desktop_config.json`:
   "mcpServers": {
     "wirelog": {
       "command": "npx",
-      "args": ["@wirelogai/mcp"],
+      "args": ["-y", "wirelog-mcp"],
       "env": {
         "WIRELOG_API_KEY": "sk_YOUR_SECRET_KEY"
       }
