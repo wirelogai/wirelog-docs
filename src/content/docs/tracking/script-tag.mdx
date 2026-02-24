@@ -9,9 +9,8 @@ Lightweight browser SDK. No build step. Single script tag. Sends events via `sen
 
 ```html
 <script
-  src="https://yourhost.com/public/wirelog.js"
+  src="https://cdn.wirelog.ai/public/wirelog.js"
   data-key="pk_your_public_key"
-  data-host="https://yourhost.com"
 ></script>
 ```
 
@@ -20,17 +19,17 @@ Lightweight browser SDK. No build step. Single script tag. Sends events via `sen
 | Attribute | Required | Description |
 |---|---|---|
 | `data-key` | Yes | Public API key (`pk_...`) |
-| `data-host` | Recommended | API base URL. Falls back to inferring from script `src` |
+| `data-host` | No | API base URL. Falls back to inferring from script `src`. Only needed if CDN and API are on different hosts. |
 | `data-consent` | No | `"true"` to require `optIn()` before any tracking |
 | `data-auto` | No | `"false"` to disable automatic `page_view` on load |
-| `data-spa` | No | `"true"` to auto-track `page_view` on SPA navigations |
+| `data-spa` | No | SPA navigation tracking. On by default. Set to `"false"` to disable. |
 
 ---
 
 ## Automatic behavior
 
 - Tracks `page_view` on page load (unless `data-auto="false"`)
-- SPA mode (`data-spa="true"`) intercepts `pushState`, `replaceState`, and `popstate` to fire `page_view` on navigation
+- SPA mode (on by default) intercepts `pushState`, `replaceState`, and `popstate` to fire `page_view` on navigation. Disable with `data-spa="false"`.
 - Auto-injects event context on all tracked events: `url`, `language`, `timezone`
 - Marks tracked events as `clientOriginated: true`
 - Auto-captured `page_view` properties include: `url`, `previous_url`, `referrer`, `title`, `referring_domain`, viewport/screen size, attribution params (`utm_*`, `gclid`, `fbclid`)
@@ -135,9 +134,8 @@ Set `data-consent="true"` on the script tag. No events are tracked or queued unt
 
 ```html
 <script
-  src="https://yourhost.com/public/wirelog.js"
+  src="https://cdn.wirelog.ai/public/wirelog.js"
   data-key="pk_your_key"
-  data-host="https://yourhost.com"
   data-consent="true"
 ></script>
 
