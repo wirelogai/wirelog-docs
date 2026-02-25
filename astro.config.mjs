@@ -65,6 +65,7 @@ export default defineConfig({
         {
           label: "Guides",
           items: [
+            { label: "Script Tag Queries", slug: "guides/script-tag-queries" },
             { label: "SaaS Metrics", slug: "guides/saas-metrics" },
             { label: "Migration", slug: "guides/migration" },
           ],

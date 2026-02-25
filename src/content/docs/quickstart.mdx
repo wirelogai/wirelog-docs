@@ -1,7 +1,9 @@
 ---
 title: Quickstart
-description: Track your first event and query it back in 5 minutes.
+description: Start tracking events in 2 minutes with the script tag or TypeScript client.
 ---
+
+import { Aside } from '@astrojs/starlight/components';
 
 ## 1. Sign up
 
@@ -18,26 +20,56 @@ From the dashboard, create a new project. You get two API keys:
 
 Copy both. The secret key is shown once.
 
-## 3. Track your first event
+## 3. Add the script tag
+
+Drop this into your HTML. One line -- you're tracking.
+
+```html
+<script
+  src="https://cdn.wirelog.ai/public/wirelog.js"
+  data-key="pk_YOUR_PUBLIC_KEY"
+></script>
+```
+
+This immediately gives you:
+- `page_view` events on every page load (and SPA navigation)
+- Session management with 30-minute inactivity timeout
+- Device identity via localStorage
+- UTM attribution capture (`utm_source`, `utm_medium`, etc.)
+- Referrer, geo, browser, viewport -- all auto-captured
+
+<Aside type="tip">
+See [Script Tag Queries](/guides/script-tag-queries) for the full set of queries that work immediately with just the script tag.
+</Aside>
+
+## 4. Install the TypeScript client
+
+For custom events in your app, add the `wirelog` package. It shares identity with the script tag -- same `device_id`, same `user_id`, no conflicts.
 
 ```bash
-$ curl -X POST https://api.wirelog.ai/track \
-    -H "X-API-Key: pk_YOUR_PUBLIC_KEY" \
-    -H "Content-Type: application/json" \
-    -d '{
-      "event_type": "signup",
-      "user_id": "alice@acme.org",
-      "event_properties": {"plan": "pro", "source": "github"}
-    }'
+npm install wirelog
 ```
 
-```json
-{"accepted": 1}
+```ts
+import { wl } from "wirelog";
+
+wl.init({ apiKey: "pk_YOUR_PUBLIC_KEY" });
+
+// Track custom events
+wl.track({ event_type: "signup", event_properties: { plan: "free" } });
+
+// Identify a logged-in user (persists across script tag too)
+wl.identify({ user_id: "alice@acme.org", user_properties: { plan: "pro" } });
+
+// All subsequent track() calls include user_id automatically
+wl.track({ event_type: "feature_used", event_properties: { feature: "export" } });
 ```
 
-`event_type` is the only required field. `user_id`, `device_id`, `session_id`, `event_properties`, and `user_properties` are optional. Batch multiple events with `{"events": [...]}`.
+Browser `track()` calls are buffered (10 events or 2 seconds) and delivered via `sendBeacon` on page close.
 
-## 4. Query it back
+## 5. Query your data
+
+Queries use a pipe DSL and require a secret key (`sk_`) or an access token with `query` scope. The fastest way to try it:
 
 ```bash
 $ curl -X POST https://api.wirelog.ai/query \
@@ -51,37 +83,25 @@ $ curl -X POST https://api.wirelog.ai/query \
 
 | event_type | count |
 |------------|-------|
-| signup     |     1 |
+| page_view  |    47 |
+| signup     |     3 |
 ```
 
-The `format` field controls output: `llm` (Markdown, default), `json`, or `csv`. Queries require a secret key (`sk_`) or an access token with `query` scope.
+Or query from the TypeScript client (server-side):
 
-## 5. Add the Script Tag (optional)
+```ts
+import { WireLog } from "wirelog";
 
-For browser tracking, drop a single script tag:
-
-```html
-<script
-  src="https://cdn.wirelog.ai/public/wirelog.js"
-  data-key="pk_YOUR_PUBLIC_KEY">
-</script>
+const client = new WireLog({ apiKey: "sk_YOUR_SECRET_KEY" });
+const result = await client.query("page_view | last 7d | count by _path | top 10");
+console.log(result);
 ```
 
-This auto-tracks `page_view` on load, manages `device_id` via localStorage, and handles `session_id` with a 30-minute inactivity timeout.
-
-Track custom events and identify users in JS:
-
-```javascript
-// Track a custom event
-wl.track("button_click", { button: "upgrade", page: "/pricing" });
-
-// Identify a logged-in user
-wl.identify("alice@acme.org", { plan: "pro", company: "Acme" });
-```
+Output formats: `llm` (Markdown, default), `json`, `csv`.
 
 ## 6. Set up identity
 
-Bind a device to a known user so pre-login events get stitched to the same `distinct_id`:
+Bind a device to a known user so pre-login events get stitched to the same `distinct_id`. If you used `wl.identify()` in step 4, you're already set. For server-side or curl:
 
 ```bash
 $ curl -X POST https://api.wirelog.ai/identify \
@@ -90,12 +110,7 @@ $ curl -X POST https://api.wirelog.ai/identify \
     -d '{
       "user_id": "alice@acme.org",
       "device_id": "dev_abc123",
-      "user_properties": {"email": "alice@acme.org", "plan": "pro"},
-      "user_property_ops": {
-        "$set": {"plan": "pro"},
-        "$set_once": {"signup_source": "github"},
-        "$add": {"login_count": 1}
-      }
+      "user_properties": {"email": "alice@acme.org", "plan": "pro"}
     }'
 ```
 
@@ -103,10 +118,9 @@ $ curl -X POST https://api.wirelog.ai/identify \
 {"ok": true}
 ```
 
-`user_id` is required. `device_id` creates the device-to-user mapping. `user_property_ops` supports `$set`, `$set_once`, `$add`, and `$unset` for incremental profile updates.
-
 ## Next steps
 
+- [Script tag queries](/guides/script-tag-queries) -- queries that work immediately with just the script tag
 - [Query language](/query-language/overview) -- pipe DSL reference with sources, stages, and operators
 - [Agent setup](/agents/overview) -- Claude Code skills and agent query patterns
 - [SaaS metrics](/guides/saas-metrics) -- funnel, retention, and segmentation recipes

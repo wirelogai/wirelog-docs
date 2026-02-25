@@ -1,0 +1,290 @@
+---
+title: "Script Tag Queries"
+description: "Queries that work immediately with just the WireLog script tag -- no custom events needed."
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Drop the [script tag](/tracking/script-tag) into your site. These queries all work immediately -- no custom event tracking required. The script tag auto-tracks `page_view` events with URL, referrer, geo, device, session, and attribution data.
+
+<Aside type="tip">
+All queries below use `page_view` as the source. That's the event the script tag fires automatically on every page load and SPA navigation.
+</Aside>
+
+## Traffic overview
+
+### Total page views by day
+
+```
+page_view | last 7d | count by day
+```
+
+Daily traffic for the last week.
+
+### Total page views by week
+
+```
+page_view | last 12w | count by week
+```
+
+Weekly traffic trend over the last 3 months.
+
+### Unique visitors by day
+
+```
+page_view | last 7d | unique distinct_id by day
+```
+
+Daily unique visitors (stitched identity -- anonymous and identified users counted once).
+
+### Unique visitors by week
+
+```
+page_view | last 12w | unique distinct_id by week
+```
+
+Weekly unique visitors over 3 months.
+
+## Top pages
+
+### Most viewed pages
+
+```
+page_view | last 30d | count by _path | top 20
+```
+
+Top 20 URL paths by view count. `_path` is the URL path extracted during enrichment.
+
+### Most viewed pages (normalized)
+
+```
+page_view | last 30d | count by _path_clean | top 20
+```
+
+Groups pages with dynamic IDs together. `/users/123/settings` and `/users/456/settings` both become `/users/{id}/settings`.
+
+### Page views for a specific page
+
+```
+page_view | where _path = "/pricing" | last 30d | count by day
+```
+
+Daily views for one page. Replace `/pricing` with any path.
+
+## Sessions
+
+### Daily session count
+
+```
+sessions | last 7d
+```
+
+Session count, average duration, and average events per session -- grouped by day.
+
+### Weekly session trend
+
+```
+sessions | last 12w | count by week
+```
+
+Session volume per week.
+
+### Top landing pages
+
+```
+sessions | last 30d | count by session.landing_path | top 20
+```
+
+Where do sessions start? Most common entry points to your site.
+
+### Top landing pages (normalized)
+
+```
+sessions | last 30d | count by session.landing_path_clean | top 20
+```
+
+Same as above but with dynamic IDs collapsed.
+
+### Top exit pages
+
+```
+sessions | last 30d | count by session.exit_path | top 20
+```
+
+Where do sessions end? Pages people leave from.
+
+## Attribution and sources
+
+### Traffic by UTM source
+
+```
+sessions | last 30d | count by session.utm_source
+```
+
+Where is traffic coming from? Google, Twitter, newsletter, etc.
+
+### Traffic by UTM medium
+
+```
+sessions | last 30d | count by session.utm_medium
+```
+
+Organic, paid, email, social, referral.
+
+### Traffic by UTM campaign
+
+```
+sessions | last 30d | count by session.utm_campaign
+```
+
+Campaign-level breakdown.
+
+### Traffic by referring domain
+
+```
+sessions | last 30d | count by session.referring_domain | top 20
+```
+
+Top 20 external domains sending traffic to your site.
+
+### Google traffic by day
+
+```
+sessions | where session.utm_source = "google" | last 30d | count by day
+```
+
+Daily session volume from Google specifically.
+
+## Geography and devices
+
+### Traffic by country
+
+```
+page_view | last 30d | count by _country | top 10
+```
+
+Top 10 countries by page view volume. `_country` is a short alias for `_geo_country`.
+
+### Traffic by city
+
+```
+page_view | last 30d | count by _city | top 20
+```
+
+### Traffic by browser
+
+```
+page_view | last 30d | count by _browser | top 10
+```
+
+Browser breakdown.
+
+### Traffic by platform
+
+```
+page_view | last 30d | count by _platform
+```
+
+`web`, `android`, `ios`.
+
+### Traffic by OS
+
+```
+page_view | last 30d | count by _os | top 10
+```
+
+## Navigation and paths
+
+### Navigation flow through your site
+
+```
+paths from page_view | last 30d | by _path
+```
+
+Most common page-to-page sequences. Without `| by _path`, you'd see `page_view -> page_view -> page_view`. With it, you see `/home -> /pricing -> /signup`.
+
+### Navigation flow (normalized)
+
+```
+paths from page_view | last 30d | by _path_clean
+```
+
+Same flow but with dynamic IDs collapsed to `{id}`.
+
+### Paths leading to a specific page
+
+```
+paths to page_view | where _path = "/signup" | last 30d | by _path
+```
+
+What pages do users visit before reaching your signup page?
+
+### Deeper navigation paths
+
+```
+paths from page_view | last 30d | by _path | depth 8 | limit 50
+```
+
+More steps (8 instead of default 5) and more results (50 instead of 20).
+
+## Engagement and retention
+
+### Lifecycle analysis
+
+```
+lifecycle page_view | last 12w | by week
+```
+
+Segments visitors into New, Returning, Resurrected, and Dormant per week. Shows whether your active user base is growing or shrinking.
+
+### Stickiness
+
+```
+stickiness page_view | last 30d
+```
+
+How many days per 30-day period are users active? A histogram of engagement frequency.
+
+### Retention from first visit
+
+```
+retention page_view | last 90d
+```
+
+Weekly cohort retention. Groups users by the week of their first `page_view` and tracks how many come back in subsequent weeks.
+
+### Monthly retention
+
+```
+retention page_view | last 6m | by month
+```
+
+Monthly cohort retention over 6 months.
+
+## Filtered queries
+
+### Mobile-only traffic
+
+```
+page_view | where _platform = "web" AND _os = "iOS" | last 30d | count by day
+```
+
+### Chrome users by page
+
+```
+page_view | where _browser = "Chrome" | last 30d | count by _path | top 20
+```
+
+### Traffic from a specific country
+
+```
+page_view | where _country = "US" | last 7d | count by day
+```
+
+### Combine session and event filters
+
+```
+sessions | where session.utm_source = "google" AND session.landing_path = "/blog" | last 30d | count by day
+```
+
+Sessions from Google that landed on the blog.
