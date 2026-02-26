@@ -83,6 +83,23 @@ page_view | last 30d | count by _path | top 20
 
 Most visited URL paths. Uses the promoted `_path` field (extracted from event URL during enrichment).
 
+### Path allowlist filter
+
+```
+page_view | where _path in ["/","/pricing","/docs"] | last 7d | count
+```
+
+Counts only the listed paths. Equivalent SQL-style form: `in ("/","/pricing","/docs")`.
+
+### Special-character event names
+
+```
+landing:cta_click | last 7d | count
+"landing:cta_click" | last 7d | count
+```
+
+Both direct and quoted source forms are supported for event names containing characters like `:`, `.`, and `/`.
+
 ### Events by country
 
 ```

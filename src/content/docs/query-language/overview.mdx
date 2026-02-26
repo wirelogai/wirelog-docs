@@ -31,7 +31,7 @@ Full inventory:
 
 | Source | Syntax | Description |
 |---|---|---|
-| Event | `<event_name>` | Filter by `event_type` |
+| Event | `<event_name>` or `"<event_name>"` | Filter by `event_type` |
 | All events | `*` | All event types (leading `\|` also works) |
 | Funnel | `funnel a -> b -> c` | Multi-step conversion analysis |
 | Retention | `retention <event>` | Cohort retention over time |
@@ -66,6 +66,17 @@ See [Sources](/query-language/sources/) for full reference.
 
 See [Stages](/query-language/stages/) for full reference.
 
+<Aside type="tip" title="Script-tag-first projects">
+If you only installed the Script Tag, start with `page_view` queries and session attribution queries:
+
+```
+page_view | last 7d | count by day
+page_view | last 30d | count by _path | top 20
+page_view | where _path in ["/","/pricing","/docs"] | last 7d | count
+sessions | last 30d | count by session.utm_source
+```
+</Aside>
+
 ## Request format
 
 Send queries via `POST /query` with a secret key (`sk_`) or access token (`aat_` with `query` scope):
@@ -94,6 +105,10 @@ Auth header: `X-API-Key: sk_...` or `X-API-Key: aat_...`
 # Daily signups this week
 signup | last 7d | count by day
 
+# Special-character event source
+landing:cta_click | last 7d | count
+"landing:cta_click" | last 7d | count
+
 # Conversion funnel
 funnel signup -> activate -> purchase exclude support_ticket | last 30d | window 7d
 
@@ -102,6 +117,9 @@ retention signup | last 90d
 
 # Session attribution trend
 sessions | last 30d | count by session.utm_source
+
+# Path allowlist (JSON-style list literal)
+page_view | where _path in ["/","/pricing","/docs"] | last 7d | count
 
 # All events from a specific company
 * | where user.email_domain = "acme.org" | last 30d | count by event_type
@@ -121,6 +139,12 @@ formula count(purchase) / count(signup) | last 30d
 **`llm`** (default) -- Markdown table. Designed for LLM consumption. Includes column headers and aligned rows.
 
 **`json`** -- Array of objects. Each row is a JSON object with column names as keys.
+
+For aggregate-style rows in JSON, use:
+- `value` as the canonical numeric metric output
+- `metric` as the metric identifier (`count`, `unique`, `sum`, `avg`, etc.)
+
+Legacy metric keys (`count`, `unique_count`, `total`, ...) are retained for compatibility.
 
 **`csv`** -- Comma-separated values with header row.
 

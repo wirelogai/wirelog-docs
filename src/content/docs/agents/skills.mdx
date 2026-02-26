@@ -17,8 +17,22 @@ Covers:
 - All source types (`*`, event names, `funnel`, `retention`, `paths`, `sessions`, `user`, `users`, `formula`)
 - All stages (`where`, `last`, `from/to`, `count`, `unique`, `sum`, `avg`, `list`, `sort`, `limit`, `top`, `by`)
 - All fields (`event_type`, `distinct_id`, `event_properties.KEY`, `user.KEY`, system fields)
+- Special-character event sources (`landing:cta_click`, `docs.view`, `checkout/success`) and quoted source syntax
+- `where in` list literals in both forms: `in (...)` and `in [...]`
 - Identity stitching (`distinct_id = coalesce(user_id, mapped_user_id, device_id)`)
 - Discovery-first workflow (always run `* | last 30d | count by event_type | top 20` before writing event-specific queries)
+
+If the project is script-tag-only, the skill also includes page-view-first starter queries:
+
+```text
+page_view | last 7d | count by day
+page_view | last 7d | unique distinct_id by day
+page_view | last 30d | count by _path | top 20
+page_view | where _path in ["/","/pricing","/docs"] | last 7d | count
+paths from page_view | last 30d | by _path
+sessions | last 30d | count by session.utm_source
+retention page_view | last 90d
+```
 
 ### wirelog-instrument
 

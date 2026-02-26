@@ -22,6 +22,29 @@ funnel signup -> activate | last 7d
 
 The agent reads the Markdown tables, compares to prior periods, and produces a natural-language summary: "Signups up 12% WoW. Activation rate steady at 65%. No anomalies."
 
+## Pattern 1b: Script-tag-only baseline
+
+When a project has only the browser Script Tag installed, start analysis with `page_view` and `sessions` queries before assuming custom product events exist.
+
+```text
+# Traffic trend
+page_view | last 7d | count by day
+
+# Top pages
+page_view | last 30d | count by _path | top 20
+
+# Focused path allowlist
+page_view | where _path in ["/","/pricing","/docs"] | last 7d | count
+
+# Navigation flow
+paths from page_view | last 30d | by _path
+
+# Acquisition quality
+sessions | last 30d | count by session.utm_source
+```
+
+This avoids overfitting to non-existent custom events and gives immediate baseline traffic, journey, and channel insight.
+
 ## Pattern 2: Agent self-tracking
 
 The agent tracks its own actions as events. Useful for auditing agent behavior, measuring tool usage, and debugging failures.

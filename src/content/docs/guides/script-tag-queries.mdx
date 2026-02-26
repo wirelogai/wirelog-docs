@@ -71,6 +71,14 @@ page_view | where _path = "/pricing" | last 30d | count by day
 
 Daily views for one page. Replace `/pricing` with any path.
 
+### Page views for a path allowlist
+
+```
+page_view | where _path in ["/","/pricing","/docs"] | last 7d | count
+```
+
+Count traffic only for a curated set of pages. You can also use SQL-style lists: `in ("/","/pricing","/docs")`.
+
 ## Sessions
 
 ### Daily session count

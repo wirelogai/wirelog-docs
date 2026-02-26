@@ -50,6 +50,16 @@ Returns a Markdown table. No SDK, no client library, no dependencies.
    -> Investigate, alert, recommend, or fix
 ```
 
+If discovery shows mostly `page_view` (script-tag-only data), pivot to page-view-first analysis:
+
+```text
+page_view | last 7d | count by day
+page_view | last 30d | count by _path | top 20
+page_view | where _path in ["/","/pricing","/docs"] | last 7d | count
+paths from page_view | last 30d | by _path
+sessions | last 30d | count by session.utm_source
+```
+
 ## Example: agent-driven funnel analysis
 
 An agent investigating signup conversion:

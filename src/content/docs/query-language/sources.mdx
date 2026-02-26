@@ -15,6 +15,7 @@ Filter events by `event_type`. Use `*` for all events.
 
 ```
 <event_name>
+"<event_name>"
 *
 ```
 
@@ -22,17 +23,33 @@ A leading `|` (with no source) is equivalent to `*`.
 
 **Description:** Selects rows from the `events` table matching the given event type. `*` selects all event types. This is the most common source -- most queries start here.
 
+Event names can include special characters such as `:`, `.`, and `/`.
+
 **Examples:**
 
 ```
 # Count page views in the last 7 days
 page_view | last 7d | count
 
+# Special-character event names
+landing:cta_click | last 7d | count
+docs.view | last 7d | count
+checkout/success | last 7d | count
+
+# Quoted source form
+"landing:cta_click" | last 7d | count
+
 # Daily count of all events, broken down by type
 * | last 30d | count by day, event_type
 
 # Filter to web platform, list raw events
 signup | where _platform = "web" | last 7d | list
+```
+
+Fallback form when source parsing is ambiguous:
+
+```
+* | where event_type = "landing:cta_click" | last 7d | count
 ```
 
 ## Funnel

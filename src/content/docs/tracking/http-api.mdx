@@ -156,7 +156,7 @@ Run a pipe DSL query against stored events.
 
 ```json
 {
-  "q": "page_view | last 7d | count by _browser",
+  "q": "page_view | where _path in [\"/\",\"/pricing\",\"/docs\"] | last 7d | count by _browser",
   "format": "llm",
   "limit": 100,
   "offset": 0
@@ -177,6 +177,12 @@ Depends on `format`:
 - **`llm`**: Markdown table (Content-Type: `text/plain`)
 - **`json`**: JSON array of objects (Content-Type: `application/json`)
 - **`csv`**: CSV string (Content-Type: `text/csv`)
+
+For `json` aggregate-style rows, canonical metric fields are included:
+- `value`: numeric metric output
+- `metric`: metric identifier (`count`, `unique`, `sum`, `avg`, etc.)
+
+Legacy metric keys (`count`, `unique_count`, `total`, ...) are preserved for compatibility.
 
 ---
 

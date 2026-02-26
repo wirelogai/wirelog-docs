@@ -23,6 +23,7 @@ Filter rows by field conditions.
 | where <field> <operator> <value>
 | where <field> <operator> <value> AND <field> <operator> <value>
 | where <field> <operator> <value> OR <field> <operator> <value>
+| where (<field> <operator> <value> OR <field> <operator> <value>) AND <field> <operator> <value>
 ```
 
 **Operators:**
@@ -39,12 +40,12 @@ Filter rows by field conditions.
 | `not contains` | No substring match | `\| where event_properties.url not contains "test"` |
 | `~` | Regex match | `\| where event_properties.page ~ "^/docs/.*"` |
 | `!~` | Regex not match | `\| where _browser !~ "bot"` |
-| `in` | Value in list | `\| where _platform in ("web", "android")` |
-| `not in` | Value not in list | `\| where _browser not in ("Safari", "IE")` |
+| `in` | Value in list | `\| where _platform in ("web", "android")` or `\| where _path in ["/", "/pricing"]` |
+| `not in` | Value not in list | `\| where _browser not in ("Safari", "IE")` or `\| where _path not in ["/admin", "/internal"]` |
 | `exists` | Field is present and non-empty | `\| where event_properties.referrer exists` |
 | `not exists` | Field is absent or empty | `\| where event_properties.error not exists` |
 
-Multiple conditions in a single `where` are combined with `AND` or `OR`. Evaluated left-to-right, no parentheses grouping. Multiple `| where` clauses are always AND-ed together.
+Multiple conditions in a single `where` are combined with `AND` or `OR`. Parentheses are supported for explicit grouping. Multiple `| where` clauses are always AND-ed together.
 
 **Examples:**
 
@@ -58,11 +59,20 @@ purchase | where event_properties.amount > 50 | last 30d | count
 # OR condition
 * | where _platform = "web" OR _platform = "android" | last 7d | count
 
-# Combined AND + OR (left-to-right evaluation)
+# Combined AND + OR (without explicit parentheses)
 * | where _platform = "web" AND _browser = "Chrome" OR _browser = "Firefox" | last 7d | count
+
+# Grouped boolean logic with parentheses
+* | where (_platform = "web" OR _platform = "android") AND _browser != "HeadlessChrome" | last 7d | count
 
 # Substring match
 page_view | where event_properties.page contains "/pricing" | last 30d | count
+
+# JSON-style IN list
+page_view | where _path in ["/","/pricing","/docs"] | last 7d | count
+
+# SQL-style IN list
+page_view | where _path in ("/","/pricing","/docs") | last 7d | count
 
 # Exists check on property maps
 * | where event_properties.error exists | last 7d | list

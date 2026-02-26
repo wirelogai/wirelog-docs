@@ -101,7 +101,7 @@ Run a pipe DSL query.
 
 ```json
 {
-  "q": "page_view | last 7d | count by _browser",
+  "q": "page_view | where _path in [\"/\",\"/pricing\",\"/docs\"] | last 7d | count by _browser",
   "format": "llm",
   "limit": 100,
   "offset": 0
@@ -116,6 +116,12 @@ Run a pipe DSL query.
 | `offset` | No | `0` | Pagination offset |
 
 **Response:** Markdown table, JSON array, or CSV depending on `format`.
+
+For `format: "json"` aggregate-style rows, canonical metric fields are included:
+- `value`: numeric metric output
+- `metric`: metric identifier (`count`, `unique`, `sum`, `avg`, etc.)
+
+Legacy metric keys (`count`, `unique_count`, `total`, ...) are preserved for compatibility.
 
 ---
 
