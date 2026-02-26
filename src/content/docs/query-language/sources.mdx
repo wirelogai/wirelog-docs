@@ -1,6 +1,6 @@
 ---
 title: Sources
-description: Full reference for event, funnel, retention, paths, sessions, lifecycle, stickiness, user, users, formula, and fields sources.
+description: Full reference for event, funnel, retention, paths, sessions, lifecycle, stickiness, user, users, formula, fields, and inspect sources.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
@@ -345,4 +345,39 @@ fields | last 30d
 
 <Aside type="tip">
 Run `fields | last 7d` when working with a new project to discover what properties are available for filtering and grouping.
+</Aside>
+
+## Inspect
+
+Discover event types and their properties. Shows counts, unique users, property coverage, sample values, and inferred types.
+
+**Syntax:**
+
+```
+inspect
+inspect *
+inspect <event_name>
+```
+
+`inspect *` (or just `inspect`) returns a per-event-type overview: count, unique users, first/last seen, and top property keys.
+
+`inspect <event_name>` returns property-level detail for a single event type: coverage %, inferred type (string/numeric/boolean), and top sample values.
+
+**Description:** The recommended first query for LLMs and agents working with a new project. It answers "what events exist and what data does each carry?" in a single request.
+
+**Examples:**
+
+```
+# Overview of all event types
+inspect * | last 30d
+
+# Inspect a specific event's properties
+inspect signup | last 7d
+
+# Inspect with quoted event name
+inspect "landing:cta_click" | last 30d
+```
+
+<Aside type="tip">
+Use `inspect *` to discover event types, then `inspect <event>` to understand a specific event's schema before writing analytics queries. This replaces the manual multi-query discovery workflow.
 </Aside>

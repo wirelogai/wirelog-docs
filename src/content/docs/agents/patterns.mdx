@@ -5,6 +5,20 @@ description: "Analytics patterns for AI agents: daily briefings, self-tracking, 
 
 Reusable patterns for agents that consume and produce WireLog analytics.
 
+## Pattern 0: Schema discovery
+
+Before writing any queries, inspect the project's data to understand what events exist and what properties they carry.
+
+```text
+# What event types exist? What properties does each have?
+inspect * | last 30d
+
+# Deep dive into a specific event's schema
+inspect signup | last 7d
+```
+
+The agent reads the inspect output to learn event names, property keys, coverage percentages, data types, and sample values. This replaces guesswork with data-driven query construction.
+
 ## Pattern 1: Morning briefing
 
 Agent runs discovery and key metric queries on a schedule, summarizes trends.
@@ -119,8 +133,8 @@ Drill into a company:
 Agent discovers events, builds funnels, and identifies conversion bottlenecks.
 
 ```text
-# Step 1: Discover events
-* | last 30d | count by event_type | top 20
+# Step 1: Discover events and their properties
+inspect * | last 30d
 
 # Step 2: Build the funnel
 funnel signup -> activate -> purchase | last 30d

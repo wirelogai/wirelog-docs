@@ -297,6 +297,19 @@ fields | last 7d
 
 Returns system/core fields plus dynamic `event_properties.*` and `user_properties.*` keys actually present in your data. Useful for LLMs and agents to discover what fields are available before writing queries.
 
+## Event inspection
+
+Use the `inspect` source to discover event types and their properties:
+
+```
+inspect * | last 30d
+inspect signup | last 7d
+```
+
+`inspect *` returns per-event-type overview: count, unique users, first/last seen, and top property keys. `inspect <event>` returns property-level detail: coverage %, inferred type (string/numeric/boolean), and top sample values.
+
+This is the recommended first query for LLMs — it answers "what events exist and what data does each carry?" in a single request.
+
 ## Property type handling
 
 Properties are normalized on ingest into typed storage buckets:
