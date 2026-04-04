@@ -42,7 +42,7 @@ wl.identify({ user_id: "alice@acme.org", user_properties: { plan: "pro" } });
 npm install wirelog
 ```
 
-Server-side works too. Pass `user_id` explicitly in Node:
+Server-side works too -- TypeScript, Python, or Go. Pass `user_id` explicitly:
 
 ```ts
 import { WireLog } from "wirelog";
@@ -54,6 +54,17 @@ await client.track({
   user_id: "u_123",
   event_properties: { amount: 99 },
 });
+```
+
+```go
+client := wirelog.New(wirelog.Config{APIKey: "sk_YOUR_SECRET_KEY"})
+defer client.Close()
+
+client.Track(wirelog.Event{
+    EventType:       "invoice.paid",
+    UserID:          "u_123",
+    EventProperties: map[string]any{"amount": 99},
+})
 ```
 
 ## Query with pipes

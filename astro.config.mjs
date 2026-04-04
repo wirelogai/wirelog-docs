@@ -35,6 +35,7 @@ export default defineConfig({
             { label: "Script Tag", slug: "tracking/script-tag" },
             { label: "TypeScript Client", slug: "tracking/typescript-client" },
             { label: "Python Client", slug: "tracking/python-client" },
+            { label: "Go Client", slug: "tracking/go-client" },
           ],
         },
         {

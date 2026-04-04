@@ -1,0 +1,224 @@
+---
+title: "Go Client"
+description: "Zero-dependency Go analytics client with background batching."
+---
+
+Zero external dependencies -- stdlib only. Go 1.22+. Non-blocking `Track()` with automatic batching via a background goroutine. Safe for concurrent use. Designed to never crash the host application.
+
+## Install
+
+```bash
+go get github.com/wirelogai/wirelog-go
+```
+
+## Quick start
+
+```go
+package main
+
+import "github.com/wirelogai/wirelog-go"
+
+func main() {
+    client := wirelog.New(wirelog.Config{APIKey: "sk_your_secret_key"})
+    defer client.Close()
+
+    client.Track(wirelog.Event{
+        EventType:       "signup",
+        UserID:          "u_123",
+        EventProperties: map[string]any{"plan": "free"},
+    })
+}
+```
+
+---
+
+## Config
+
+```go
+wirelog.New(wirelog.Config{...})
+```
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `APIKey` | `string` | `WIRELOG_API_KEY` env var | `pk_`, `sk_`, or `aat_` |
+| `Host` | `string` | `WIRELOG_HOST` env var or `https://api.wirelog.ai` | API base URL |
+| `BatchSize` | `int` | `10` | Max events per batch. Capped at 2000 |
+| `FlushInterval` | `time.Duration` | `2s` | Max time between automatic flushes |
+| `QueueSize` | `int` | `10000` | In-memory event buffer capacity |
+| `HTTPTimeout` | `time.Duration` | `30s` | Per-request HTTP timeout |
+| `OnError` | `func(error)` | `nil` | Background error callback (must be goroutine-safe) |
+| `Disabled` | `bool` | `false` | Disables tracking. Query/Identify still work |
+
+---
+
+## Methods
+
+### Track()
+
+```go
+client.Track(event wirelog.Event)
+```
+
+Enqueue an event for asynchronous delivery. Never blocks, never returns an error. If the queue is full, the event is dropped and `OnError` is called.
+
+Auto-generates `insert_id` and `time` if not set.
+
+```go
+client.Track(wirelog.Event{
+    EventType:       "purchase",
+    UserID:          "u_123",
+    EventProperties: map[string]any{"plan": "pro", "amount": 49},
+})
+```
+
+### Flush()
+
+```go
+client.Flush(ctx context.Context) error
+```
+
+Block until all buffered events are sent, or the context is cancelled.
+
+```go
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer cancel()
+client.Flush(ctx)
+```
+
+### Close()
+
+```go
+client.Close() error
+```
+
+Flush remaining events and stop the background worker. After `Close()`, `Track()` calls are silently dropped. Idempotent.
+
+```go
+defer client.Close()
+```
+
+### Query()
+
+```go
+client.Query(ctx context.Context, q string, opts ...wirelog.QueryOption) (any, error)
+```
+
+Run a pipe DSL query. Returns a Markdown string (`llm`), decoded JSON (`json`), or CSV string (`csv`).
+
+| Option | Type | Default | Notes |
+|---|---|---|---|
+| `WithFormat(f)` | `string` | `"llm"` | `"llm"`, `"json"`, `"csv"` |
+| `WithLimit(n)` | `int` | `100` | Max 10,000 |
+| `WithOffset(n)` | `int` | `0` | Pagination offset |
+
+```go
+// Markdown table (default)
+md, err := client.Query(ctx, "* | last 30d | count by event_type | top 10")
+
+// JSON
+data, err := client.Query(ctx, "page_view | last 7d | count", wirelog.WithFormat("json"))
+
+// CSV with pagination
+csv, err := client.Query(ctx, "* | last 90d | count by event_type",
+    wirelog.WithFormat("csv"),
+    wirelog.WithLimit(10000),
+)
+```
+
+### Identify()
+
+```go
+client.Identify(ctx context.Context, params wirelog.IdentifyParams) (*wirelog.IdentifyResult, error)
+```
+
+Bind a device to a user and upsert profile properties.
+
+```go
+result, err := client.Identify(ctx, wirelog.IdentifyParams{
+    UserID:   "alice@acme.org",
+    DeviceID: "dev_abc",
+    UserProperties: map[string]any{"email": "alice@acme.org"},
+    UserPropertyOps: &wirelog.UserPropertyOps{
+        Set:     map[string]any{"plan": "enterprise"},
+        SetOnce: map[string]any{"signup_source": "ads"},
+        Add:     map[string]float64{"login_count": 1},
+        Unset:   []string{"legacy_flag"},
+    },
+})
+// result.OK == true
+```
+
+---
+
+## Event struct
+
+```go
+type Event struct {
+    EventType        string         `json:"event_type"`
+    UserID           string         `json:"user_id,omitempty"`
+    DeviceID         string         `json:"device_id,omitempty"`
+    SessionID        string         `json:"session_id,omitempty"`
+    EventProperties  map[string]any `json:"event_properties,omitempty"`
+    UserProperties   map[string]any `json:"user_properties,omitempty"`
+    InsertID         string         `json:"insert_id,omitempty"`
+    Origin           string         `json:"origin,omitempty"`
+    Time             string         `json:"time,omitempty"`
+    Library          string         `json:"library,omitempty"`
+}
+```
+
+`InsertID`, `Time`, and `Library` are auto-generated if empty.
+
+---
+
+## Batching and reliability
+
+- Events are buffered in a channel and flushed by a background goroutine
+- Flush triggers: batch reaches `BatchSize` (default 10) or `FlushInterval` elapses (default 2s)
+- Transient failures (429, 5xx) are retried with exponential backoff (up to 3 retries)
+- Permanent failures (4xx) are reported to `OnError` and not retried
+- Queue overflow: newest events are dropped; `ErrQueueFull` is reported to `OnError`
+- The background worker recovers from panics
+
+---
+
+## Error handling
+
+`Query()` and `Identify()` return `*wirelog.APIError` on non-2xx responses.
+
+```go
+result, err := client.Query(ctx, "bad query")
+if err != nil {
+    var apiErr *wirelog.APIError
+    if errors.As(err, &apiErr) {
+        fmt.Println(apiErr.StatusCode) // HTTP status code
+        fmt.Println(apiErr.Body)       // Response body
+    }
+}
+```
+
+`Track()` never returns errors. Background errors (failed flushes, dropped events) are reported via the `OnError` callback:
+
+```go
+client := wirelog.New(wirelog.Config{
+    APIKey: "sk_your_key",
+    OnError: func(err error) {
+        log.Printf("wirelog: %v", err)
+    },
+})
+```
+
+---
+
+## Sentinel errors
+
+| Error | When |
+|---|---|
+| `wirelog.ErrClosed` | Operation attempted on a closed client |
+| `wirelog.ErrQueueFull` | Event dropped because the queue is at capacity |
+
+---
+
+## Source
+
+[github.com/wirelogai/wirelog-go](https://github.com/wirelogai/wirelog-go)
