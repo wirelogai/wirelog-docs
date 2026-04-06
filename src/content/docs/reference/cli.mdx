@@ -1,0 +1,274 @@
+---
+title: "CLI"
+description: "WireLog CLI — query, track, identify, and manage analytics from your terminal."
+---
+
+Cross-platform binary for the full WireLog API surface. Styled tables for humans, structured JSON for agents. Auto-detects TTY.
+
+## Install
+
+```bash
+# macOS / Linux
+brew install wirelogai/tap/wl
+
+# Go
+go install github.com/wirelogai/wirelog-cli@latest
+```
+
+Or download a binary from [GitHub Releases](https://github.com/wirelogai/wirelog-cli/releases).
+
+## Quick start
+
+```bash
+# Configure
+wl config init
+
+# Send an event
+wl track page_view --user-id u1 --prop path=/home
+
+# Query
+wl query "* | last 7d | count by event_type"
+
+# Discover events
+wl inspect
+```
+
+---
+
+## Configuration
+
+Config file: `~/.config/wirelog/config.json`
+
+Precedence (highest to lowest):
+
+| Priority | Source |
+|---|---|
+| 1 | `--api-key` / `--host` flags |
+| 2 | `WIRELOG_API_KEY` / `WIRELOG_HOST` env vars |
+| 3 | `.wirelog.json` in current directory |
+| 4 | `~/.config/wirelog/config.json` |
+| 5 | Default host: `https://api.wirelog.ai` |
+
+```bash
+wl config init                     # interactive setup
+wl config set api-key sk_xxx       # set a value
+wl config get api-key              # masked output
+wl config list                     # show all config
+wl config path                     # print file path
+```
+
+---
+
+## Auth key types
+
+Different commands require different API key types. The CLI sends whatever key is configured and the server enforces permissions.
+
+| Command | Required key | Endpoint |
+|---|---|---|
+| `wl query` | `sk_` or `aat_` (query scope) | `POST /query` |
+| `wl track` | `pk_`, `sk_`, or `aat_` (track scope) | `POST /track` |
+| `wl identify` | `pk_`, `sk_`, or `aat_` (track scope) | `POST /identify` |
+| `wl gdpr` | `sk_` or `aat_` (admin scope) | `/api/gdpr/*` |
+| `wl project` | `ak_` (org admin key) | `/api/admin/*` |
+| `wl health` | none | `/healthz`, `/readyz` |
+
+---
+
+## Global flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--api-key` | — | API key (overrides env/config) |
+| `--host` | — | API host (overrides env/config) |
+| `--format` | `auto` | Output: `table`, `json`, `csv`, `markdown` |
+| `--json` | — | Shorthand for `--format=json` |
+| `--no-color` | — | Disable color output |
+| `--timeout` | `30s` | Request timeout |
+| `--quiet` | — | Suppress stderr diagnostics |
+
+---
+
+## Commands
+
+### query
+
+Run a pipe-DSL analytics query. Alias: `q`.
+
+```bash
+wl query "* | last 7d | count by event_type"
+wl query "page_view | last 30d | count by day" --format csv > report.csv
+wl query "funnel signup -> purchase | last 30d" --json
+echo "* | last 7d | count" | wl query -
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--limit` | `100` | Max rows |
+| `--offset` | `0` | Pagination offset |
+
+When the argument is `-`, the query is read from stdin.
+
+### track
+
+Send tracking events.
+
+```bash
+wl track page_view --user-id u123 --prop path=/home --prop referrer=google
+wl track signup --user-id u456 --prop-json '{"plan":"pro","seats":5}'
+cat events.jsonl | wl track --stdin
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--user-id` | — | User ID |
+| `--device-id` | — | Device ID |
+| `--session-id` | — | Session ID |
+| `--prop` | — | Event property as `key=value` (repeatable) |
+| `--user-prop` | — | User property as `key=value` (repeatable) |
+| `--prop-json` | — | Event properties as a JSON object |
+| `--stdin` | — | Read events as JSONL from stdin |
+| `--batch-size` | `100` | Batch size for stdin mode |
+| `--dry-run` | — | Print request body without sending |
+
+Use `--prop-json` for typed values (numbers, booleans, arrays) that `key=value` flags would collapse to strings. Both can be combined — `--prop-json` wins on conflict.
+
+### identify
+
+Bind a device to a user and update profile properties.
+
+```bash
+wl identify --user-id u123 --prop name="Jane Doe" --prop plan=enterprise
+wl identify --user-id u123 --device-id d456
+wl identify --user-id u123 --set-once signup_source=ads --add login_count=1
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--user-id` | — | User ID (required) |
+| `--device-id` | — | Device ID |
+| `--prop` | — | `$set` property (repeatable) |
+| `--set-once` | — | `$set_once` property (repeatable) |
+| `--add` | — | `$add` numeric property (repeatable) |
+| `--unset` | — | `$unset` property name (repeatable) |
+| `--dry-run` | — | Print request body without sending |
+
+### inspect
+
+Discover events and their properties using the `inspect` query source.
+
+```bash
+wl inspect              # inspect * | last 30d
+wl inspect signup       # inspect signup | last 7d
+wl inspect --last 90d   # inspect * | last 90d
+```
+
+### project
+
+Manage projects via the Admin API. Requires an `ak_` org admin key.
+
+```bash
+wl project list
+wl project create my-project
+wl project get <id>
+wl project delete <id>              # prompts for confirmation
+wl project rotate-secret-key <id>   # prompts for confirmation
+wl project usage <id> --from 2026-01-01 --to 2026-01-31
+```
+
+Use `--yes` to skip confirmation prompts in scripts.
+
+### gdpr
+
+GDPR data export and deletion.
+
+```bash
+wl gdpr export <user-id>                    # streams NDJSON to stdout
+wl gdpr export <user-id> > user_data.jsonl  # save to file
+wl gdpr delete <user-id>                    # prompts for confirmation
+wl gdpr delete <user-id> --yes              # skip prompt
+```
+
+### health
+
+Check API health. No auth required.
+
+```bash
+wl health
+```
+
+### version
+
+```bash
+wl version
+wl version --json
+```
+
+### completion
+
+Generate shell completions.
+
+```bash
+source <(wl completion bash)
+source <(wl completion zsh)
+wl completion fish | source
+```
+
+---
+
+## Output formats
+
+Default: `table` when stdout is a TTY, `json` when piped.
+
+| Format | Flag | Server format | Notes |
+|---|---|---|---|
+| `table` | `--format table` | `json` | Parsed and rendered with styled columns |
+| `json` | `--json` or `--format json` | `json` | Pretty-printed, pass-through |
+| `csv` | `--format csv` | `csv` | Raw server CSV |
+| `markdown` | `--format markdown` | `llm` | Raw server Markdown |
+
+---
+
+## Agent usage
+
+The CLI is designed for AI agent consumption:
+
+- `--json` on every command produces machine-parseable output
+- stdout is strictly for data, stderr for diagnostics
+- Exit code 0 on success, 1 on error
+- `--quiet` suppresses non-essential stderr output
+- `--yes` skips confirmation prompts on destructive operations
+- `--dry-run` on track/identify previews the request without sending
+
+```bash
+# Agent workflow
+wl inspect --json                                    # discover schema
+wl query "* | last 7d | count by event_type" --json  # structured results
+wl track signup --user-id u1 --prop plan=pro --json   # send events
+```
+
+---
+
+## Bulk loading
+
+Pipe JSONL events from files or other programs:
+
+```bash
+cat events.jsonl | wl track --stdin
+echo '{"event_type":"click","user_id":"u1"}' | wl track --stdin
+```
+
+Events are batched (default 100) for efficient ingestion. `insert_id` is auto-generated for dedupe safety when not provided.
+
+---
+
+## Error handling
+
+On API errors, the CLI prints the server error message to stderr and exits with code 1. Auth errors include a hint about which key type is needed.
+
+Rate-limited requests (429) are retried up to 3 times with exponential backoff. The `Retry-After` header is respected.
+
+---
+
+## Source
+
+[github.com/wirelogai/wirelog-cli](https://github.com/wirelogai/wirelog-cli)

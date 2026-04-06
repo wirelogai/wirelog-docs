@@ -75,6 +75,7 @@ export default defineConfig({
           label: "Reference",
           items: [
             { label: "API Reference", slug: "reference/api" },
+            { label: "CLI", slug: "reference/cli" },
             { label: "Pricing", slug: "reference/pricing" },
           ],
         },
