@@ -1,0 +1,130 @@
+---
+title: Introduction
+description: Headless analytics for agents and LLMs. Events in, Markdown out.
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+Track what users do. Let LLM agents query the data, find insights, and tell you what to fix. No dashboards -- your agent is the analyst.
+
+LLM agents are genuinely good at analyst work now. They can segment users, spot drop-offs, correlate trends with deploys, and prescribe actions -- across every metric, every morning, before you open your laptop. They just need data in a format they can read. WireLog gives them that: events in via HTTP, Markdown tables out via a pipe DSL.
+
+10M events free. $5 per million after that. No per-seat pricing. No "contact sales."
+
+## Drop in a script tag
+
+One line. Automatic `page_view` tracking, session management, device identity, SPA navigation, UTM attribution. Done.
+
+```html
+<script
+  src="https://cdn.wirelog.ai/public/wirelog.js"
+  data-key="pk_YOUR_PUBLIC_KEY"
+></script>
+```
+
+You immediately get page views, sessions, landing pages, referrers, geo, browser/device breakdown, and navigation paths -- all queryable. See [what queries work out of the box](/guides/script-tag-queries).
+
+## Track custom events
+
+Use the TypeScript client for typed events in your app. It shares identity with the script tag -- same `device_id`, same `user_id`.
+
+```ts
+import { wl } from "wirelog";
+
+wl.init({ apiKey: "pk_YOUR_PUBLIC_KEY" });
+
+wl.track({ event_type: "signup", event_properties: { plan: "pro" } });
+
+wl.identify({ user_id: "alice@acme.org", user_properties: { plan: "pro" } });
+```
+
+```bash
+npm install wirelog
+```
+
+Server-side works too -- TypeScript, Python, or Go. Pass `user_id` explicitly:
+
+```ts
+import { WireLog } from "wirelog";
+
+const client = new WireLog({ apiKey: "sk_YOUR_SECRET_KEY" });
+
+await client.track({
+  event_type: "invoice.paid",
+  user_id: "u_123",
+  event_properties: { amount: 99 },
+});
+```
+
+```go
+client := wirelog.New(wirelog.Config{APIKey: "sk_YOUR_SECRET_KEY"})
+defer client.Close()
+
+client.Track(wirelog.Event{
+    EventType:       "invoice.paid",
+    UserID:          "u_123",
+    EventProperties: map[string]any{"amount": 99},
+})
+```
+
+## Query with pipes
+
+Queries are source-first, pipe-composed. Your agent writes these -- or you do, in a curl call.
+
+```text
+# Daily signups this week
+signup | last 7d | count by day
+
+# Top pages by traffic
+page_view | last 30d | count by _path | top 20
+
+# Signup-to-purchase funnel
+funnel signup -> activation -> purchase | last 30d
+
+# Weekly retention from signup
+retention signup | last 90d
+
+# Where are users coming from?
+sessions | last 30d | count by session.utm_source
+
+# Navigation flow through your site
+paths from page_view | last 30d | by _path
+```
+
+Output is Markdown (for agents), JSON, or CSV. Full reference in [Query Language](/query-language/overview).
+
+## Let agents do the analysis
+
+Point an agent at your WireLog project. It discovers what events exist, writes queries, reads Markdown results, and reports back with recommendations. One query at a time, across every segment, every metric.
+
+```text
+Agent: What events are being tracked?
+Query: * | last 30d | count by event_type | top 20
+
+Agent: Signups dropped 30% this week. Let me check by platform.
+Query: signup | last 14d | count by day, _platform
+
+Agent: Mobile web signup is down. Checking the funnel.
+Query: funnel page_view -> signup -> activation | last 14d | by _platform
+
+Agent: Mobile web drops off between page_view and signup.
+       The signup form may be broken on mobile. Check the deploy
+       from Feb 18 -- that's when the drop started.
+```
+
+No dashboard can do this. An agent can do it across every metric, every morning.
+
+<CardGrid>
+  <Card title="Quickstart" icon="rocket">
+    Track events in 2 minutes. [Start here](/)
+  </Card>
+  <Card title="Script Tag Queries" icon="magnifier">
+    Queries that work immediately with just the script tag. [See queries](/guides/script-tag-queries)
+  </Card>
+  <Card title="For Agents" icon="laptop">
+    Claude Code skills, agent patterns. [Agent setup](/agents/overview)
+  </Card>
+  <Card title="Pricing" icon="approve-check">
+    10M events free. $5/million after. [See pricing](/reference/pricing)
+  </Card>
+</CardGrid>
