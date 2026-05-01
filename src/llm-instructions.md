@@ -147,6 +147,17 @@ wl query "inspect * | last 30d" --json
 wl query "* | last 30d | count by event_type | top 20" --json
 ```
 
+Test dashboard queries as you author them. For each important source, filter, user variable, and metric, run a representative `wl query "..." --json` and verify the returned rows, columns, and values match the card you are building. Do not assume field names or identity filters work because they look plausible.
+
+Before handing off a dashboard, run it as data:
+
+```bash
+wl dashboard run --file dashboard.yaml --json
+wl dashboard run --file dashboard.yaml --var range=7d --format markdown
+```
+
+Treat unexpected zeros, empty rows, missing columns, or wrong modes as query bugs and fix the YAML before viewing/exporting.
+
 Minimal dashboard:
 
 ```yaml

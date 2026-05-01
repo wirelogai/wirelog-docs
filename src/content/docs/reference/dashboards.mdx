@@ -42,7 +42,8 @@ When written to a file, interactive exports use `0600` permissions because the H
   - `wl query "* | last 30d | count by event_type | top 20" --json`
 - Use `wl dashboard schema --output -` when generating YAML.
 - Validate before viewing or exporting.
-- Run the dashboard as data with `wl dashboard run --file dashboard.yaml --json`.
+- Test representative card queries with `wl query "..." --json` while authoring. Verify sources, filters, fields, rows, columns, and values match the card intent before trusting the YAML.
+- Run the dashboard as data with `wl dashboard run --file dashboard.yaml --json`; fix unexpected zeros, empty rows, missing columns, or wrong modes before viewing/exporting.
 - Use root `order` values like `10`, `20`, `30` for dashboard directories.
 - Use root `timezone` to localize time display.
 - Use shared variables for date ranges and segments.
