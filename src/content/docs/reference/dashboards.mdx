@@ -25,6 +25,7 @@ wl dashboard save --file dashboard.yaml --output index.html --mode interactive -
 `wl dashboard run` executes every non-Markdown card query in one dashboard file and prints structured results.
 
 `wl dashboard view --file <dir>` discovers `.yaml` and `.yml` dashboards under that directory and renders a sidebar for switching dashboards.
+Each dashboard also has a stable local route, such as `/dashboard/usage.yaml`; extensionless routes like `/dashboard/usage` work when unambiguous.
 
 ## Export modes
 
@@ -103,6 +104,7 @@ Cards define either `query` or `queries`, not both. Use `queries` for overlays a
 - Dashboards with `order > 0` appear first, sorted ascending.
 - Dashboards without `order` sort by filename after ordered dashboards.
 - Leave gaps so agents can insert dashboards later.
+- Direct URLs use `/dashboard/<id>`, where `<id>` is the relative file path from the dashboard directory.
 
 ## Variables
 

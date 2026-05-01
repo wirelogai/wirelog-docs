@@ -136,6 +136,7 @@ wl dashboard save --file dashboard.yaml --output - --mode report
 - `report`: fixed data, no token embedded. Prefer for sharing.
 - `interactive`: browser can re-query; requires a query-scoped `aat_` token. Never embed `sk_`, `pk_`, or `ak_`.
 - `view --file <dir>` renders a sidebar for `.yaml`/`.yml` dashboards.
+- Directory dashboards have stable local routes like `/dashboard/usage.yaml`; extensionless routes like `/dashboard/usage` work when unambiguous.
 - Root `order: 10` controls sidebar order; leave gaps like `10`, `20`, `30`.
 - Root `timezone: UTC` controls display timezone; use the user's preferred IANA timezone when known.
 

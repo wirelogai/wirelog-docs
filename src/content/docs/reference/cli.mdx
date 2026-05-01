@@ -53,7 +53,7 @@ wl dashboard save --file dashboard.yaml --output index.html --mode report
 wl dashboard save --file dashboard.yaml --output - --mode report
 ```
 
-Use `wl dashboard run` to execute every query and print data without opening a browser. Use `wl dashboard view --file ./dashboards` to render a sidebar for all dashboard files in a directory. Root-level `order: 10` controls sidebar order.
+Use `wl dashboard run` to execute every query and print data without opening a browser. Use `wl dashboard view --file ./dashboards` to render a sidebar for all dashboard files in a directory. Root-level `order: 10` controls sidebar order. Local dashboard routes use `/dashboard/<id>`, such as `/dashboard/usage.yaml`; extensionless routes work when unambiguous.
 
 Use `--mode interactive` only with an `aat_` token that has query scope:
 
