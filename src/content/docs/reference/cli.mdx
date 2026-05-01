@@ -35,6 +35,35 @@ wl inspect
 
 ---
 
+## Dashboards
+
+Dashboards are YAML files intended for agents to create and validate.
+
+```bash
+wl dashboard init --output dashboard.yaml
+wl dashboard init --output -
+wl dashboard schema --output -
+wl dashboard validate --file dashboard.yaml
+wl dashboard validate --file - --json
+wl dashboard run --file dashboard.yaml --json
+wl dashboard run --file dashboard.yaml --var range=7d --format markdown
+wl dashboard view --file dashboard.yaml --open
+wl dashboard view --file ./dashboards
+wl dashboard save --file dashboard.yaml --output index.html --mode report
+wl dashboard save --file dashboard.yaml --output - --mode report
+```
+
+Use `wl dashboard run` to execute every query and print data without opening a browser. Use `wl dashboard view --file ./dashboards` to render a sidebar for all dashboard files in a directory. Root-level `order: 10` controls sidebar order.
+
+Use `--mode interactive` only with an `aat_` token that has query scope:
+
+```bash
+export WIRELOG_DASHBOARD_TOKEN=aat_xxx
+wl dashboard save --file dashboard.yaml --output index.html --mode interactive --token-env WIRELOG_DASHBOARD_TOKEN
+```
+
+---
+
 ## Configuration
 
 Config file: `~/.config/wirelog/config.json`

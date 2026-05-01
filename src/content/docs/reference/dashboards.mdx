@@ -1,0 +1,223 @@
+---
+title: "Dashboards"
+description: "Agent-authored YAML dashboards for local viewing and static HTML exports."
+---
+
+Dashboards are CLI tooling. They are YAML files of WireLog queries rendered locally or exported as HTML. WireLog remains headless and API-first.
+
+## Commands
+
+```bash
+wl dashboard init --output dashboard.yaml
+wl dashboard init --output -
+wl dashboard schema --output -
+wl dashboard validate --file dashboard.yaml
+wl dashboard validate --file - --json
+wl dashboard run --file dashboard.yaml --json
+wl dashboard run --file dashboard.yaml --var range=7d --format markdown
+wl dashboard view --file dashboard.yaml --open
+wl dashboard view --file ./dashboards
+wl dashboard save --file dashboard.yaml --output index.html --mode report
+wl dashboard save --file dashboard.yaml --output - --mode report
+wl dashboard save --file dashboard.yaml --output index.html --mode interactive --token-env WIRELOG_DASHBOARD_TOKEN
+```
+
+`wl dashboard run` executes every non-Markdown card query in one dashboard file and prints structured results.
+
+`wl dashboard view --file <dir>` discovers `.yaml` and `.yml` dashboards under that directory and renders a sidebar for switching dashboards.
+
+## Export modes
+
+- `report`: fixed data, no token embedded.
+- `interactive`: embeds an `aat_` token with query scope and lets browser controls re-run `/query`.
+
+Interactive exports reject `pk_`, `sk_`, and `ak_`.
+When written to a file, interactive exports use `0600` permissions because the HTML contains the token.
+
+## Creating dashboards with agents
+
+- Start with discovery:
+  - `wl query "inspect * | last 30d" --json`
+  - `wl query "* | last 30d | count by event_type | top 20" --json`
+- Use `wl dashboard schema --output -` when generating YAML.
+- Validate before viewing or exporting.
+- Run the dashboard as data with `wl dashboard run --file dashboard.yaml --json`.
+- Use root `order` values like `10`, `20`, `30` for dashboard directories.
+- Use root `timezone` to localize time display.
+- Use shared variables for date ranges and segments.
+- Use explicit chart options when columns are ambiguous.
+
+## YAML
+
+```yaml
+version: 1
+title: Product Growth
+order: 10
+refresh: 60s
+timezone: UTC
+
+variables:
+  range:
+    label: Range
+    type: select
+    default: 30d
+    options:
+      - label: 7d
+        value: 7d
+      - label: 30d
+        value: 30d
+  platform:
+    label: Platform
+    type: select
+    default: all
+    options:
+      - label: All
+        value: all
+        fragment: ""
+      - label: Web
+        value: web
+        fragment: '| where _platform = "web"'
+
+sections:
+  - title: Acquisition
+    cards:
+      - id: acquisition-trends
+        title: Acquisition Trends
+        kind: chart
+        viz: line
+        layout: {w: 8, h: 4}
+        queries:
+          - name: Signups
+            query: signup | last {{range}} {{platform.fragment}} | count by day
+          - name: Activations
+            query: activate | last {{range}} {{platform.fragment}} | count by day
+```
+
+Variables are dashboard-level anchors. Cards opt in with `{{range}}`, `{{platform.fragment}}`, or safe input fragments.
+
+Cards define either `query` or `queries`, not both. Use `queries` for overlays and explicit comparisons.
+
+## Directory ordering
+
+- `order: 10` controls sidebar order in `wl dashboard view --file ./dashboards`.
+- Dashboards with `order > 0` appear first, sorted ascending.
+- Dashboards without `order` sort by filename after ordered dashboards.
+- Leave gaps so agents can insert dashboards later.
+
+## Variables
+
+Select variables use whitelisted values. Fragments are author-controlled YAML, not viewer text:
+
+```yaml
+variables:
+  platform:
+    label: Platform
+    type: select
+    default: all
+    options:
+      - label: All
+        value: all
+        fragment: ""
+      - label: Web
+        value: web
+        fragment: '| where _platform = "web"'
+```
+
+Dynamic dropdown variables can load options from WireLog data. Static options are preserved first; dynamic options are sorted by ASCII value:
+
+```yaml
+variables:
+  country:
+    label: Country
+    type: select
+    default: all
+    options:
+      - label: All
+        value: all
+        fragment: ""
+    query: '* | last 30d | count by _country | top 25'
+    value_column: _country
+    label_column: _country
+    fragment_template: '| where _country = "{{value}}"'
+```
+
+Input variables are submit-only. Use them for user lookup dashboards with safe named fragments:
+
+```yaml
+variables:
+  subject:
+    label: User
+    type: input
+    input: email
+    required: true
+    submit: true
+    placeholder: "email or *@example.com"
+    allow_domain_wildcard: true
+    fragments:
+      events:
+        exact_field: user.email
+        domain_field: user.email_domain
+      users:
+        exact_field: email
+        domain_field: email_domain
+```
+
+Exact emails become equality filters. `*@example.com` becomes a domain equality filter when `allow_domain_wildcard` is true.
+
+```yaml
+query: '* {{subject.events_fragment}} | last {{range}} | list | limit 100'
+query: 'users {{subject.users_fragment}} | list'
+```
+
+## Cards
+
+Supported card kinds:
+
+- `metric`
+- `chart`
+- `table`
+- `events`
+- `funnel`
+- `retention`
+- `journey`
+- `sessions`
+- `lifecycle`
+- `stickiness`
+- `users`
+- `inspect`
+- `markdown`
+
+Supported visualizations:
+
+- `number`
+- `line`
+- `area`
+- `bar`
+- `pie`
+- `table`
+- `event-stream`
+- `funnel`
+- `retention-grid`
+- `path`
+- `lifecycle`
+- `histogram`
+- `json`
+- `markdown`
+
+Chart cards can pin column bindings when inference would be ambiguous:
+
+```yaml
+options: {x: day, y: value, series: _browser}
+query: 'page_view | last {{range}} | count by day, _browser | top 50'
+```
+
+Dashboard-side ratios divide the first query by the second query:
+
+```yaml
+options: {calculate: ratio, x: day, y: value}
+queries:
+  - name: Purchases
+    query: purchase | last {{range}} | count by day
+  - name: Signups
+    query: signup | last {{range}} | count by day
+```

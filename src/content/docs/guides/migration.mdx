@@ -121,7 +121,7 @@ WireLog's permissive ingest means you can send the same property shapes you alre
 
 ## Key differences
 
-**No dashboards.** Queries return Markdown, JSON, or CSV. Your agent, script, or notebook is the consumer. There is no visual query builder or chart renderer.
+**Query-first, not dashboard-first.** Queries return Markdown, JSON, or CSV. Your agent, script, or notebook is the primary consumer. Optional CLI YAML dashboards can render query files locally or export HTML, but there is no hosted visual query builder.
 
 **No visual query builder.** The pipe DSL is text-based. Queries are written as `source | stage | stage`. LLMs and agents can compose them directly.
 
@@ -131,7 +131,7 @@ WireLog's permissive ingest means you can send the same property shapes you alre
 
 **No group analytics (yet).** Use `user.email_domain` or `user.company_id` for B2B company-level segmentation. See [SaaS Metrics](/guides/saas-metrics#b2b-segmentation) for recipes.
 
-**Output is for machines.** Default output format is Markdown (optimized for LLM consumption). Also supports JSON and CSV. No charts, no embeds, no iframes.
+**Output is for machines.** Default output format is Markdown (optimized for LLM consumption). Also supports JSON and CSV. CLI dashboards are generated from query files on top of that machine-readable output.
 
 ## Pricing comparison
 

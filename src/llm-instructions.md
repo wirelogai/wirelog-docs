@@ -1,6 +1,6 @@
 # WireLog — Analytics for Agents & LLMs
 
-> Headless, API-first analytics. Events in, Markdown out. No dashboards — your agent is the dashboard.
+> Headless, API-first analytics. Events in, Markdown out. Agents can query directly or author lightweight YAML dashboards.
 
 Alternative to PostHog, Amplitude, and Mixpanel designed for AI agents. Track events via HTTP, query with a pipe DSL, get Markdown tables back.
 
@@ -115,6 +115,140 @@ wl identify --user-id u1 --prop plan=pro               # identify
 ```
 
 Auto-detects TTY: styled tables for humans, `--json` for agents. Config precedence: flags > env vars (`WIRELOG_API_KEY`/`WIRELOG_HOST`) > `.wirelog.json` > `~/.config/wirelog/config.json`.
+
+### Dashboard YAML
+
+Dashboards are agent-authored YAML files for related WireLog queries. They can be validated, run as data, viewed locally, or exported as HTML.
+
+```bash
+wl dashboard schema --output -
+wl dashboard init --output -
+wl dashboard validate --file dashboard.yaml
+wl dashboard validate --file - --json
+wl dashboard run --file dashboard.yaml --json
+wl dashboard run --file dashboard.yaml --var range=7d --format markdown
+wl dashboard view --file dashboard.yaml --open
+wl dashboard view --file ./dashboards
+wl dashboard save --file dashboard.yaml --output index.html --mode report
+wl dashboard save --file dashboard.yaml --output - --mode report
+```
+
+- `report`: fixed data, no token embedded. Prefer for sharing.
+- `interactive`: browser can re-query; requires a query-scoped `aat_` token. Never embed `sk_`, `pk_`, or `ak_`.
+- `view --file <dir>` renders a sidebar for `.yaml`/`.yml` dashboards.
+- Root `order: 10` controls sidebar order; leave gaps like `10`, `20`, `30`.
+- Root `timezone: UTC` controls display timezone; use the user's preferred IANA timezone when known.
+
+Start every dashboard from discovery:
+
+```bash
+wl query "inspect * | last 30d" --json
+wl query "* | last 30d | count by event_type | top 20" --json
+```
+
+Minimal dashboard:
+
+```yaml
+version: 1
+title: Product Growth
+order: 10
+refresh: 60s
+timezone: UTC
+variables:
+  range:
+    label: Range
+    type: select
+    default: 30d
+    options:
+      - {label: 7d, value: 7d}
+      - {label: 30d, value: 30d}
+sections:
+  - title: Overview
+    cards:
+      - id: events-by-day
+        title: Events by Day
+        kind: chart
+        viz: line
+        layout: {w: 6, h: 4}
+        query: '* | last {{range}} | count by day'
+      - id: top-events
+        title: Top Events
+        kind: table
+        viz: table
+        layout: {w: 6, h: 4}
+        query: '* | last {{range}} | count by event_type | top 20'
+```
+
+Shared filters use author-controlled fragments:
+
+```yaml
+variables:
+  platform:
+    label: Platform
+    type: select
+    default: all
+    options:
+      - {label: All, value: all, fragment: ""}
+      - {label: Web, value: web, fragment: '| where _platform = "web"'}
+query: 'signup | last {{range}} {{platform.fragment}} | count by day'
+```
+
+Dynamic dropdowns can come from data:
+
+```yaml
+variables:
+  country:
+    label: Country
+    type: select
+    default: all
+    options:
+      - {label: All, value: all, fragment: ""}
+    query: '* | last 30d | count by _country | top 25'
+    value_column: _country
+    label_column: _country
+    fragment_template: '| where _country = "{{value}}"'
+```
+
+User lookup dashboards use submitted input variables with safe named fragments. Exact emails become equality filters; `*@example.com` becomes a domain equality filter when allowed:
+
+```yaml
+variables:
+  subject:
+    label: User
+    type: input
+    input: email
+    required: true
+    submit: true
+    placeholder: "email or *@example.com"
+    allow_domain_wildcard: true
+    fragments:
+      events: {exact_field: user.email, domain_field: user.email_domain}
+      users: {exact_field: email, domain_field: email_domain}
+query: '* {{subject.events_fragment}} | last {{range}} | list | limit 100'
+```
+
+Chart hints:
+
+```yaml
+options: {x: day, y: value, series: _browser}
+query: 'page_view | last {{range}} | count by day, _browser | top 50'
+```
+
+Dashboard-side ratios use two normal aggregate queries:
+
+```yaml
+options: {calculate: ratio, x: day, y: value}
+queries:
+  - {name: Purchases, query: 'purchase | last {{range}} | count by day'}
+  - {name: Signups, query: 'signup | last {{range}} | count by day'}
+```
+
+Dashboard rules:
+- Use real event names from `inspect`; do not invent project-specific events.
+- Use `query` for one series, `queries` for overlays or ratios.
+- Use `select` for dropdowns; use `input` only with safe named fragments.
+- Never splice raw user text into a query.
+- Validate and run before exporting.
 
 ### Raw HTTP (cURL)
 

@@ -123,6 +123,17 @@ For `format: "json"` aggregate-style rows, canonical metric fields are included:
 
 Legacy metric keys (`count`, `unique_count`, `total`, ...) are preserved for compatibility.
 
+Mode-specific metadata is additive and optional. Funnel JSON responses include:
+
+```json
+{
+  "mode": "funnel",
+  "metadata": {
+    "funnel_steps": ["landing", "signup", "activate"]
+  }
+}
+```
+
 ---
 
 ## Session-Authenticated API
