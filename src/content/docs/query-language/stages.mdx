@@ -232,6 +232,45 @@ api_request | last 7d | p95 event_properties.duration
 signup | last 12w | unique distinct_id by week, _platform
 ```
 
+## latest
+
+Project event rows down to one latest value per entity before aggregating.
+
+```
+| latest <field>
+| latest <field> per <entity_field>
+```
+
+Default entity is stitched `distinct_id`. Allowed `per` fields are `distinct_id`, `user_id`, `device_id`, `session_id`, `event_properties.KEY`, `user_properties.KEY`, and `user.KEY`.
+
+Latest aggregate results use `last_value` as the breakdown column. Latest list results return `entity`, `last_value`, and `set_at`.
+
+Without an explicit time range, `latest` uses the same bounded event default as other event queries: last 7 days. Use `| last ...` or `| from ... to ...` to choose a different setter-event window.
+
+Use `latest` when the state exists only as setter/change events. If you control instrumentation and the value is durable current user state, prefer writing it as a user profile property with `identify` and querying the `users` source.
+
+**Examples:**
+
+```
+# Most common latest theme in the default event window
+themeSwitch | latest event_properties.theme | count by last_value | top 10
+
+# Latest theme changes in a specific window
+themeSwitch | last 30d | latest event_properties.theme | count by last_value
+
+# Account-level latest theme
+themeSwitch | latest event_properties.theme per event_properties.account_id | count by last_value
+
+# Raw latest rows
+themeSwitch | latest event_properties.theme | list
+
+# Numeric latest value
+purchase | latest event_properties.amount | avg last_value
+
+# Preferred current-state query when theme is stored as a profile property
+users | count by user.theme
+```
+
 ## Group by
 
 The `by` keyword groups aggregation results. Used inline with aggregations (`| count by day`) or as a standalone stage (`| by _platform`) for funnel/retention breakouts.
@@ -265,6 +304,8 @@ Return raw event rows instead of aggregated results.
 ```
 
 Default columns returned: `insert_id`, `event_type`, `time`, `user_id`, `device_id`, `session_id`, `event_properties`, `user_properties`, `_ip`, `_browser`, `_browser_version`, `_os`, `_os_version`, `_device_type`, `_platform`.
+
+When `list` follows `latest`, the result uses the latest-specific schema: `entity`, `last_value`, `set_at`.
 
 Results are ordered by `time DESC` (most recent first). Use `| limit N` to control how many rows.
 

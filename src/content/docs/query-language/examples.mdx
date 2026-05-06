@@ -286,6 +286,22 @@ Mean purchase amount. Use `median` for a distribution-resistant measure:
 
 Use this when spend events are server-originated but you still want latest stitched browser/session context (campaign, locale, geo).
 
+### Latest event-derived state
+
+```
+themeSwitch | latest event_properties.theme | count by last_value | top 10
+themeSwitch | last 30d | latest event_properties.theme | count by last_value
+themeSwitch | latest event_properties.theme | list
+```
+
+Use this when a value is represented by setter/change events and you need one latest value per stitched user before aggregating. The default entity is stitched `distinct_id`; latest list rows return `entity`, `last_value`, and `set_at`.
+
+If the value is durable current user state and you control instrumentation, prefer writing it with `identify` and querying user profiles:
+
+```
+users | count by user.theme
+```
+
 ## Sessions and paths
 
 ### Daily session metrics

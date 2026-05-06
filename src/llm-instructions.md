@@ -393,6 +393,7 @@ fields | last 7d                                   -- all available fields
 | Boolean | `\| where (a = "x" or b = "y") and c = "z"` — nested parentheses supported |
 | Time range | `\| last 7d` / `\| last 12w` / `\| from 2026-01-01 to 2026-02-01` / `\| today` / `\| yesterday` / `\| this week` / `\| this month` / `\| this quarter` / `\| this year` |
 | Aggregation | `\| count`, `\| unique distinct_id`, `\| sum field`, `\| avg field`, `\| min field`, `\| max field`, `\| median field`, `\| p90 field`, `\| p95 field`, `\| p99 field` |
+| Latest value | `\| latest event_properties.theme [per distinct_id]` — one latest value per entity; aggregate with `count by last_value` |
 | Group by | `\| count by day`, `\| count by week, _browser` — granularities: hour, day, week, month, quarter |
 | List | `\| list` — raw event rows |
 | Sort | `\| sort field desc` |
@@ -424,6 +425,14 @@ fields | last 7d                                   -- all available fields
 **Latest stitched session**: `user_last_session.KEY` — same key space as `session.*`, resolves to each user's most recent session
 
 **Identity note**: `distinct_id = coalesce(user_id, mapped_user_id, device_id)`. Use `unique distinct_id` for user-level uniques.
+
+**Latest event-derived state**: use `latest <field>` on an event source when a value is represented by setter/change events. Default entity is stitched `distinct_id`; override with `per event_properties.account_id` or another entity field. Latest aggregate rows use `last_value`; latest list rows return `entity`, `last_value`, `set_at`. Without an explicit time range, latest uses the bounded event default window.
+
+Prefer user profile properties for durable current state when you control instrumentation:
+
+```
+users | count by user.theme
+```
 
 ### Examples
 
@@ -486,6 +495,15 @@ users | where email_domain = "acme.org" | list
 user "alice@acme.org" | last 90d | list
 * | where user.email_domain = "acme.org" | last 30d | count by event_type
 * | where user.plan = "enterprise" | last 12w | count by week
+```
+
+**Latest event-derived state**
+```
+themeSwitch | latest event_properties.theme | count by last_value | top 10
+themeSwitch | last 30d | latest event_properties.theme | count by last_value
+themeSwitch | latest event_properties.theme | list
+themeSwitch | latest event_properties.theme per event_properties.account_id | count by last_value
+purchase | latest event_properties.amount | avg last_value
 ```
 
 **Pages & content**

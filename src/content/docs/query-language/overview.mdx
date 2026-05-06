@@ -57,6 +57,7 @@ See [Sources](/query-language/sources/) for full reference.
 | Sum / Avg | `\| sum event_properties.amount` | Numeric aggregations |
 | Min / Max | `\| min field`, `\| max field` | Extremes |
 | Median / Percentiles | `\| median field`, `\| p90 field`, `\| p95 field`, `\| p99 field` | Distribution |
+| Latest value | `\| latest event_properties.theme` | One latest property value per entity |
 | Group by | `\| count by day, field` | Group aggregation by time or field |
 | List | `\| list` | Return raw event rows |
 | Window | `\| window 7d` | Funnel/path completion window |
@@ -127,6 +128,12 @@ page_view | where _path in ["/","/pricing","/docs"] | last 7d | count
 # Backend spend by latest browser-region context
 ai_usage_charged | where user_last_session.region = "DE" | last 30d | sum event_properties.amount
 
+# Latest event-derived state by user
+themeSwitch | latest event_properties.theme | count by last_value | top 10
+
+# Preferred current user state when written with identify
+users | count by user.theme
+
 # Single user timeline
 user "alice@acme.org" | last 90d | list
 
@@ -140,7 +147,7 @@ formula count(purchase) / count(signup) | last 30d
 
 **`json`** -- Array of objects. Each row is a JSON object with column names as keys.
 
-For aggregate-style rows in JSON, use:
+For aggregate-style rows in JSON, including `latest_aggregate`, use:
 - `value` as the canonical numeric metric output
 - `metric` as the metric identifier (`count`, `unique`, `sum`, `avg`, etc.)
 
