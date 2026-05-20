@@ -23,6 +23,8 @@ Lightweight browser SDK. No build step. Single script tag. Sends events via `sen
 | `data-consent` | No | `"true"` to require `optIn()` before any tracking |
 | `data-auto` | No | `"false"` to disable automatic `page_view` on load |
 | `data-spa` | No | SPA navigation tracking. On by default. Set to `"false"` to disable. |
+| `data-env` | No | Choice result environment. Defaults to `production`. |
+| `data-choice-seed` | No | Stable choice assignment seed, usually your project ID. Defaults to the API key. |
 
 ---
 
@@ -124,6 +126,36 @@ Manually flush the event queue.
 
 ```js
 wl.flush();
+```
+
+### Choices
+
+`choice()` resolves synchronously, then records the exposure through the normal
+async event queue. Call `identify()` first for user-level experiments, or
+`visitor()` for anonymous device-level tests.
+
+```js
+wl.identify("u_123");
+
+const headline = wl.choice("landing_h1", [
+  { key: "welcome", value: "landing.h1.welcome" },
+  { key: "best", value: "landing.h1.best" },
+]);
+```
+
+Weighted variants use `{ key, value, weight }`. Use `assignment()` when you need
+the selected variant key in application code.
+
+For internationalized copy, keep variant `key` stable and translate the selected
+`value` after assignment. `choice_version` ignores `value`, so translation edits
+do not rebucket users while keys and weights are unchanged.
+
+Use `data-choice-seed` to preserve assignments across API key rotation:
+
+```html
+<script src="https://cdn.wirelog.ai/public/wirelog.js"
+        data-key="pk_your_key"
+        data-choice-seed="proj_your_project_id"></script>
 ```
 
 ---

@@ -412,3 +412,16 @@ paths from page_view | last 30d | by _path
 # Paths with 8-step depth
 paths from signup | last 30d | depth 8
 ```
+
+## Choice-specific stages
+
+```text
+| results <conversion_event>
+| window <duration>
+| unit <user_id|device_id|session_id>
+```
+
+`results` returns a machine-readable choice packet with variants, comparisons,
+diagnostics, warnings, decision status, method, and generation time. `window`
+sets the conversion attribution window. `unit` filters exposures to the
+assignment unit used by `choice()`.

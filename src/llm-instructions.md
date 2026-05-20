@@ -9,8 +9,8 @@ Alternative to PostHog, Amplitude, and Mixpanel designed for AI agents. Track ev
 | Prefix | Name | Permissions | Where to use |
 |--------|------|-------------|--------------|
 | `pk_` | Public | Track only | Client-side (browsers, mobile, agents) |
-| `sk_` | Secret | Track + query + identify | Server-side only — never expose |
-| `aat_` | Access token | Scoped (track/query/admin), time-limited | Agents, integrations |
+| `sk_` | Secret | Track + query + identify + admin | Server-side only — never expose |
+| `aat_` | Access token | Scoped track/query/admin access, time-limited | Agents, integrations |
 
 Auth: send as `X-API-Key` header or `?key=` query param.
 
@@ -33,6 +33,8 @@ Auto-tracks `page_view` on load and SPA navigations. Auto-captures: url, previou
 | `data-consent` | `"true"` = require `wl.optIn()` before tracking |
 | `data-auto` | `"false"` = disable auto page_view |
 | `data-spa` | `"false"` = disable SPA navigation tracking |
+| `data-env` | Choice result environment |
+| `data-choice-seed` | Stable choice assignment seed, usually project ID |
 
 JS API:
 ```javascript
@@ -41,6 +43,8 @@ wl.identify("user_id", { name: "Alice" })       // bind device to user + set pro
 wl.reset()                                       // clear identity (logout)
 wl.optIn() / wl.optOut()                         // consent management
 wl.flush()                                       // manual flush
+wl.choice("landing_h1", [{ key: "welcome", value: "landing.h1.welcome" }])
+wl.assignment("landing_h1", [{ key: "welcome", value: "landing.h1.welcome", weight: 1 }])
 ```
 
 Identity: device_id in localStorage, session_id in sessionStorage (30-min timeout), user_id in localStorage. Batches 10 events or every 2s. sendBeacon on page close.
@@ -157,6 +161,30 @@ wl dashboard run --file dashboard.yaml --var range=7d --format markdown
 ```
 
 Treat unexpected zeros, empty rows, missing columns, or wrong modes as query bugs and fix the YAML before viewing/exporting.
+
+### Choices
+
+Agents should analyze `wirelog.choice()` experiments from discovered conversion
+events, not guessed event names:
+
+```bash
+wl query "inspect * | last 30d" --json
+wl choice results landing_h1 --conversion signup --window 7d
+```
+
+Choice result queries:
+
+```text
+choice landing_h1 | results signup
+choice landing_h1 | results signup | window 7d | unit user_id
+choice landing_h1 | last 7d | count by variant_key
+```
+
+Choices are declared in application code with `choice()`; keep analysis and
+dashboards on the `choice <key>` query source and `wl choice results`.
+Keep variant keys stable for i18n; `choice_version` ignores localized `value`.
+Use a stable choice seed/project ID when assignments must survive API key
+rotation.
 
 Minimal dashboard:
 

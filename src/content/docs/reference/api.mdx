@@ -209,6 +209,21 @@ Returns the raw token once. It cannot be retrieved again.
 
 ---
 
+### Choices
+
+Choices use the normal ingest and query APIs. SDKs emit `wirelog.exposure`
+events through `/track`; results are queried through `/query`.
+
+```json
+{"q":"choice landing_h1 | results signup | window 7d | unit user_id","format":"json"}
+```
+
+Choice result packets include `choice_key`, `conversion_event`, `variants`,
+`comparisons`, `diagnostics`, `warnings`, `decision_status`, `method`, and
+`generated_at`.
+
+---
+
 ### Usage
 
 **GET /api/projects/\{projectID\}/usage** -- Daily usage stats.
@@ -251,7 +266,7 @@ Auth: `sk_` or `aat_` with `admin` scope via `X-API-Key` header.
 | `ak_` | Admin key | org admin | No |
 | `aat_` | Access token | custom per-token | Depends on scopes |
 
-- `pk_` keys are safe to expose in client-side code. They can only ingest events.
+- `pk_` keys are safe to expose in client-side code. They can ingest events.
 - `sk_` keys have full project access. Never expose in browsers or public repos.
 - `ak_` keys have org-level admin access. Never expose in client code.
 - `aat_` tokens are hashed before storage. The raw token is shown once at creation.

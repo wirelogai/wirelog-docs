@@ -381,3 +381,20 @@ inspect "landing:cta_click" | last 30d
 <Aside type="tip">
 Use `inspect *` to discover event types, then `inspect <event>` to understand a specific event's schema before writing analytics queries. This replaces the manual multi-query discovery workflow.
 </Aside>
+
+## Choices
+
+Client-side choices are created in application code with `choice()` and
+recorded as `wirelog.exposure` events:
+
+```text
+choice <choice_key>
+```
+
+Examples:
+
+```text
+choice landing_h1 | results signup
+choice landing_h1 | results signup | window 7d | unit user_id
+choice landing_h1 | last 7d | count by variant_key
+```

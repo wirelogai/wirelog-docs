@@ -71,6 +71,43 @@ In Node.js, `device_id`, `session_id`, and browser identity are not applicable. 
 
 ---
 
+## Choices
+
+The TypeScript client runs client-side experiments with `choice()`, which
+resolves synchronously and records exposure asynchronously.
+
+```ts
+import { WireLog } from "wirelog";
+
+const wl = new WireLog({ apiKey: "pk_...", environment: "production" });
+await wl.identify({ user_id: "u_123" });
+
+const headline = wl.choice("landing_h1", [
+  { key: "welcome", value: "landing.h1.welcome" },
+  { key: "best", value: "landing.h1.best" },
+]);
+```
+
+Call `visitor()` before `choice()` for anonymous device-level tests. Weighted
+variants use `{ key, value, weight }`; `assignment()` returns the full packet
+when application code needs the variant key.
+
+For i18n, keep variant `key` stable and use `value` for the translation key or
+localized payload. `choice_version` ignores `value`, so copy changes do not
+rebucket users while keys and weights are unchanged.
+
+Set `choiceSeed` to a stable project identifier if assignments must survive API
+key rotation:
+
+```ts
+const wl = new WireLog({
+  apiKey: "pk_...",
+  choiceSeed: "proj_...",
+});
+```
+
+---
+
 ## Explicit instances
 
 For server-side Node.js, multiple projects, or test isolation, create instances directly:
@@ -94,6 +131,7 @@ console.log(result);
 interface WireLogConfig {
   apiKey?: string;
   host?: string;    // Defaults to https://api.wirelog.ai
+  choiceSeed?: string; // Stable choice seed, usually project ID
 }
 
 interface TrackEvent {
