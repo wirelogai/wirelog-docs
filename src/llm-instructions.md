@@ -162,6 +162,8 @@ wl dashboard run --file dashboard.yaml --var range=7d --format markdown
 
 Treat unexpected zeros, empty rows, missing columns, or wrong modes as query bugs and fix the YAML before viewing/exporting.
 
+For chart cards, set `options.x`, `options.y`, and `options.series` when a result has multiple plausible columns. Time bucket charts render chronologically and align multi-series buckets; missing bucket values display as gaps.
+
 ### Choices
 
 Agents should analyze `wirelog.choice()` experiments from discovered conversion
