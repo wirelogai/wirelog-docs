@@ -114,11 +114,12 @@ brew install wirelogai/tap/wl
 wl config init                                         # interactive setup
 wl inspect                                             # discover events
 wl query "* | last 7d | count by event_type"           # query
+wl query --query "inspect * | last 30d" --query "users | count" --json
 wl track page_view --user-id u1 --prop path=/home      # track
 wl identify --user-id u1 --prop plan=pro               # identify
 ```
 
-Auto-detects TTY: styled tables for humans, `--json` for agents. Config precedence: flags > env vars (`WIRELOG_API_KEY`/`WIRELOG_HOST`) > `.wirelog.json` > `~/.config/wirelog/config.json`.
+Auto-detects TTY: styled tables for humans, `--json` for agents. For multiple independent queries, prefer repeated `--query` flags; the CLI returns `{"results":[...]}` in JSON mode. Config precedence: flags > env vars (`WIRELOG_API_KEY`/`WIRELOG_HOST`) > `.wirelog.json` > `~/.config/wirelog/config.json`.
 
 ### Dashboard YAML
 
@@ -147,8 +148,7 @@ wl dashboard save --file dashboard.yaml --output - --mode report
 Start every dashboard from discovery:
 
 ```bash
-wl query "inspect * | last 30d" --json
-wl query "* | last 30d | count by event_type | top 20" --json
+wl query --query "inspect * | last 30d" --query "* | last 30d | count by event_type | top 20" --json
 ```
 
 Test dashboard queries as you author them. For each important source, filter, user variable, and metric, run a representative `wl query "..." --json` and verify the returned rows, columns, and values match the card you are building. Do not assume field names or identity filters work because they look plausible.

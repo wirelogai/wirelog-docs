@@ -129,6 +129,7 @@ Run a pipe-DSL analytics query. Alias: `q`.
 wl query "* | last 7d | count by event_type"
 wl query "page_view | last 30d | count by day" --format csv > report.csv
 wl query "funnel signup -> purchase | last 30d" --json
+wl query --query "inspect * | last 30d" --query "users | count" --json
 echo "* | last 7d | count" | wl query -
 ```
 
@@ -136,8 +137,12 @@ echo "* | last 7d | count" | wl query -
 |---|---|---|
 | `--limit` | `100` | Max rows |
 | `--offset` | `0` | Pagination offset |
+| `--query` | — | Query DSL string; repeat to run a query list |
+| `--concurrency` | `8` | Max concurrent requests for a query list |
 
-When the argument is `-`, the query is read from stdin.
+When the argument is `-`, the query is read from stdin. Stdin may contain one query or a newline-separated list.
+
+For agents, prefer repeated `--query` flags over constructing JSON strings. Query lists return `{"results":[...]}` in JSON mode. CSV output is single-query only. JSON string arrays and `{"queries":[...]}` objects are accepted as compatibility input.
 
 ### track
 
@@ -281,6 +286,7 @@ The CLI is designed for AI agent consumption:
 # Agent workflow
 wl inspect --json                                    # discover schema
 wl query "* | last 7d | count by event_type" --json  # structured results
+wl query --query "inspect * | last 30d" --query "users | count" --json
 wl track signup --user-id u1 --prop plan=pro --json   # send events
 ```
 
