@@ -30,9 +30,10 @@ Each dashboard also has a stable local route, such as `/dashboard/usage.yaml`; e
 ## Export modes
 
 - `report`: fixed data, no token embedded.
-- `interactive`: embeds an `aat_` token with query scope and lets browser controls re-run `/query`.
+- `interactive`: embeds a query-scoped `aat_` token and lets browser controls re-run `/query`.
 
 Interactive exports reject `pk_`, `sk_`, and `ak_`.
+Team members should use their own personal query token, not a shared `sk_`.
 When written to a file, interactive exports use `0600` permissions because the HTML contains the token.
 
 ## Creating dashboards with agents
@@ -46,7 +47,7 @@ When written to a file, interactive exports use `0600` permissions because the H
 - Run the dashboard as data with `wl dashboard run --file dashboard.yaml --json`; fix unexpected zeros, empty rows, missing columns, or wrong modes before viewing/exporting.
 - Use root `order` values like `10`, `20`, `30` for dashboard directories.
 - Use root `timezone` to localize time display.
-- Use shared variables for date ranges and segments.
+- Use the built-in `range` date-range control for time windows; use shared variables for segments.
 - Use explicit chart options when columns are ambiguous.
 
 ## YAML
@@ -61,13 +62,8 @@ timezone: UTC
 variables:
   range:
     label: Range
-    type: select
+    type: date_range
     default: 30d
-    options:
-      - label: 7d
-        value: 7d
-      - label: 30d
-        value: 30d
   platform:
     label: Platform
     type: select
@@ -90,12 +86,12 @@ sections:
         layout: {w: 8, h: 4}
         queries:
           - name: Signups
-            query: signup | last {{range}} {{platform.fragment}} | count by day
+            query: signup {{range.stage}} {{platform.fragment}} | count by day
           - name: Activations
-            query: activate | last {{range}} {{platform.fragment}} | count by day
+            query: activate {{range.stage}} {{platform.fragment}} | count by day
 ```
 
-Variables are dashboard-level anchors. Cards opt in with `{{range}}`, `{{platform.fragment}}`, or safe input fragments.
+Variables are dashboard-level anchors. Dashboards automatically get a `range` date-range control unless they define their own `variables.range`. Use `{{range.stage}}` for a full time stage such as `| last 30d` or `| from 2026-04-01 to 2026-05-01`; old `| last {{range}}` templates still work for preset/custom values. Cards can also opt in with `{{platform.fragment}}` or safe input fragments.
 
 Cards define either `query` or `queries`, not both. Use `queries` for overlays and explicit comparisons.
 
@@ -168,7 +164,7 @@ variables:
 Exact emails become equality filters. `*@example.com` becomes a domain equality filter when `allow_domain_wildcard` is true.
 
 ```yaml
-query: '* {{subject.events_fragment}} | last {{range}} | list | limit 100'
+query: '* {{subject.events_fragment}} {{range.stage}} | list | limit 100'
 query: 'users {{subject.users_fragment}} | list'
 ```
 
@@ -211,7 +207,7 @@ Chart cards can pin column bindings when inference would be ambiguous:
 
 ```yaml
 options: {x: day, y: value, series: _browser}
-query: 'page_view | last {{range}} | count by day, _browser | top 50'
+query: 'page_view {{range.stage}} | count by day, _browser | top 50'
 ```
 
 Line, area, and bar charts render time bucket columns (`hour`, `day`, `week`, `month`, date/time fields) on chronological axes. Multi-series time charts are aligned to one shared bucket domain; missing buckets render as gaps instead of lines connecting across absent data. For grouped time queries, set `options.x`, `options.y`, and `options.series` explicitly when the result has more than one non-metric column.
@@ -222,7 +218,7 @@ Dashboard-side ratios divide the first query by the second query:
 options: {calculate: ratio, x: day, y: value}
 queries:
   - name: Purchases
-    query: purchase | last {{range}} | count by day
+    query: purchase {{range.stage}} | count by day
   - name: Signups
-    query: signup | last {{range}} | count by day
+    query: signup {{range.stage}} | count by day
 ```

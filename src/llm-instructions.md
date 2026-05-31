@@ -10,7 +10,7 @@ Alternative to PostHog, Amplitude, and Mixpanel designed for AI agents. Track ev
 |--------|------|-------------|--------------|
 | `pk_` | Public | Track only | Client-side (browsers, mobile, agents) |
 | `sk_` | Secret | Track + query + identify + admin | Server-side only — never expose |
-| `aat_` | Access token | Scoped track/query/admin access, time-limited | Agents, integrations |
+| `aat_` | Access token | Scoped track/query/admin access, time-limited | Personal CLI/dashboard tokens, agents, integrations |
 
 Auth: send as `X-API-Key` header or `?key=` query param.
 
@@ -139,7 +139,7 @@ wl dashboard save --file dashboard.yaml --output - --mode report
 ```
 
 - `report`: fixed data, no token embedded. Prefer for sharing.
-- `interactive`: browser can re-query; requires a query-scoped `aat_` token. Never embed `sk_`, `pk_`, or `ak_`.
+- `interactive`: browser can re-query; requires a query-scoped `aat_` token. Team members should use a personal query token. Never embed `sk_`, `pk_`, or `ak_`.
 - `view --file <dir>` renders a sidebar for `.yaml`/`.yml` dashboards.
 - Directory dashboards have stable local routes like `/dashboard/usage.yaml`; extensionless routes like `/dashboard/usage` work when unambiguous.
 - Root `order: 10` controls sidebar order; leave gaps like `10`, `20`, `30`.
@@ -161,6 +161,8 @@ wl dashboard run --file dashboard.yaml --var range=7d --format markdown
 ```
 
 Treat unexpected zeros, empty rows, missing columns, or wrong modes as query bugs and fix the YAML before viewing/exporting.
+
+Every dashboard gets a built-in `range` date-range control unless it defines `variables.range`. Prefer `{{range.stage}}` in queries; it expands to a full time stage such as `| last 30d`, last month, or a custom `from/to` range. Old `| last {{range}}` templates are accepted for compatibility.
 
 For chart cards, set `options.x`, `options.y`, and `options.series` when a result has multiple plausible columns. Time bucket charts render chronologically and align multi-series buckets; missing bucket values display as gaps.
 
@@ -199,11 +201,8 @@ timezone: UTC
 variables:
   range:
     label: Range
-    type: select
+    type: date_range
     default: 30d
-    options:
-      - {label: 7d, value: 7d}
-      - {label: 30d, value: 30d}
 sections:
   - title: Overview
     cards:
@@ -212,19 +211,23 @@ sections:
         kind: chart
         viz: line
         layout: {w: 6, h: 4}
-        query: '* | last {{range}} | count by day'
+        query: '* {{range.stage}} | count by day'
       - id: top-events
         title: Top Events
         kind: table
         viz: table
         layout: {w: 6, h: 4}
-        query: '* | last {{range}} | count by event_type | top 20'
+        query: '* {{range.stage}} | count by event_type | top 20'
 ```
 
 Shared filters use author-controlled fragments:
 
 ```yaml
 variables:
+  range:
+    label: Range
+    type: date_range
+    default: 30d
   platform:
     label: Platform
     type: select
@@ -232,7 +235,7 @@ variables:
     options:
       - {label: All, value: all, fragment: ""}
       - {label: Web, value: web, fragment: '| where _platform = "web"'}
-query: 'signup | last {{range}} {{platform.fragment}} | count by day'
+query: 'signup {{range.stage}} {{platform.fragment}} | count by day'
 ```
 
 Dynamic dropdowns can come from data:
@@ -266,14 +269,14 @@ variables:
     fragments:
       events: {exact_field: user.email, domain_field: user.email_domain}
       users: {exact_field: email, domain_field: email_domain}
-query: '* {{subject.events_fragment}} | last {{range}} | list | limit 100'
+query: '* {{subject.events_fragment}} {{range.stage}} | list | limit 100'
 ```
 
 Chart hints:
 
 ```yaml
 options: {x: day, y: value, series: _browser}
-query: 'page_view | last {{range}} | count by day, _browser | top 50'
+query: 'page_view {{range.stage}} | count by day, _browser | top 50'
 ```
 
 Dashboard-side ratios use two normal aggregate queries:
@@ -281,8 +284,8 @@ Dashboard-side ratios use two normal aggregate queries:
 ```yaml
 options: {calculate: ratio, x: day, y: value}
 queries:
-  - {name: Purchases, query: 'purchase | last {{range}} | count by day'}
-  - {name: Signups, query: 'signup | last {{range}} | count by day'}
+  - {name: Purchases, query: 'purchase {{range.stage}} | count by day'}
+  - {name: Signups, query: 'signup {{range.stage}} | count by day'}
 ```
 
 Dashboard rules:
@@ -301,7 +304,7 @@ curl -X POST https://api.wirelog.ai/track \
   -H "Content-Type: application/json" \
   -d '{"event_type":"page_view","user_id":"u_123","event_properties":{"page":"/pricing"}}'
 
-# Query (requires sk_ key)
+# Query (requires a personal query aat_ token or sk_ key)
 curl -X POST https://api.wirelog.ai/query \
   -H "X-API-Key: sk_YOUR_KEY" \
   -H "Content-Type: application/json" \
