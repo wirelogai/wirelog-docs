@@ -45,7 +45,7 @@ Filter rows by field conditions.
 | `exists` | Field is present and non-empty | `\| where event_properties.referrer exists` |
 | `not exists` | Field is absent or empty | `\| where event_properties.error not exists` |
 
-Multiple conditions in a single `where` are combined with `AND` or `OR`. Parentheses are supported for explicit grouping, up to 32 nested groups. Multiple `| where` clauses are always AND-ed together.
+Multiple conditions in a single `where` are combined with `AND` or `OR`. Parentheses are supported for explicit grouping, up to 32 nested groups. Multiple `| where` clauses are always AND-ed together. Boolean expressions remain inside the authenticated project's tenant scope; `OR` cannot widen a query to other projects.
 
 **Examples:**
 
