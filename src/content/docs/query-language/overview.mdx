@@ -153,6 +153,8 @@ For aggregate-style rows in JSON, including `latest_aggregate`, use:
 
 Legacy metric keys (`count`, `unique_count`, `total`, ...) are retained for compatibility.
 
+JSON responses report ClickHouse progress in `rows_scanned`. It counts source rows read while executing the query, not result rows returned.
+
 **`csv`** -- Comma-separated values with header row.
 
 ## Next

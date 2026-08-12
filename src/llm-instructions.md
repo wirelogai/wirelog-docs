@@ -166,7 +166,7 @@ Every dashboard gets a built-in `range` date-range control unless it defines `va
 
 For chart cards, set `options.x`, `options.y`, and `options.series` when a result has multiple plausible columns. Time bucket charts render chronologically and align multi-series buckets; missing bucket values display as gaps. Line and area charts keep the active bucket live, draw its final segment as dashed, and mark its tooltip `partial`.
 
-Local and interactive dashboards progressively run visible cards in layout order, two at a time, so the first row can render before lower rows finish querying.
+Local and interactive dashboards progressively load visible cards in layout order. They coalesce up to eight cards into one request, deduplicate identical rendered queries across the batch, and run at most eight query jobs concurrently. Cards entering the viewport settle for 400 ms. Query rate limits are surfaced immediately instead of being retried invisibly.
 
 ### Choices
 
@@ -390,6 +390,7 @@ POST /query  {"q": "signup | last 7d | count by day", "format": "llm"}
 ```
 
 Output formats: `llm` (Markdown tables, default), `json`, `csv`.
+JSON responses include `rows_scanned`, the ClickHouse source rows read during execution rather than the number of returned rows.
 
 ### Discover Events First
 

@@ -122,6 +122,7 @@ For `format: "json"` aggregate-style rows, canonical metric fields are included:
 - `metric`: metric identifier (`count`, `unique`, `sum`, `avg`, etc.)
 
 Legacy metric keys (`count`, `unique_count`, `total`, ...) are preserved for compatibility.
+`rows_scanned` reports ClickHouse source rows read while executing the query, not result rows returned.
 
 Mode-specific metadata is additive and optional. Funnel JSON responses include:
 
