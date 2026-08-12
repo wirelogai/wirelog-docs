@@ -210,7 +210,9 @@ options: {x: day, y: value, series: _browser}
 query: 'page_view {{range.stage}} | count by day, _browser | top 50'
 ```
 
-Line, area, and bar charts render time bucket columns (`hour`, `day`, `week`, `month`, date/time fields) on chronological axes. Multi-series time charts are aligned to one shared bucket domain; missing buckets render as gaps instead of lines connecting across absent data. For grouped time queries, set `options.x`, `options.y`, and `options.series` explicitly when the result has more than one non-metric column.
+Line, area, and bar charts render time bucket columns (`hour`, `day`, `week`, `month`, date/time fields) on chronological axes. Multi-series time charts are aligned to one shared bucket domain; missing buckets render as gaps instead of lines connecting across absent data. Line and area charts keep the active time bucket live, draw the final segment as dashed, and mark its tooltip `partial` so current data stays visible without implying a complete-period comparison. For grouped time queries, set `options.x`, `options.y`, and `options.series` explicitly when the result has more than one non-metric column.
+
+Local and interactive dashboards progressively run visible cards in layout order, two at a time, so the first row can render before lower rows finish querying.
 
 Dashboard-side ratios divide the first query by the second query:
 

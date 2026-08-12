@@ -164,7 +164,9 @@ Treat unexpected zeros, empty rows, missing columns, or wrong modes as query bug
 
 Every dashboard gets a built-in `range` date-range control unless it defines `variables.range`. Prefer `{{range.stage}}` in queries; it expands to a full time stage such as `| last 30d`, last month, or a custom `from/to` range. Old `| last {{range}}` templates are accepted for compatibility.
 
-For chart cards, set `options.x`, `options.y`, and `options.series` when a result has multiple plausible columns. Time bucket charts render chronologically and align multi-series buckets; missing bucket values display as gaps.
+For chart cards, set `options.x`, `options.y`, and `options.series` when a result has multiple plausible columns. Time bucket charts render chronologically and align multi-series buckets; missing bucket values display as gaps. Line and area charts keep the active bucket live, draw its final segment as dashed, and mark its tooltip `partial`.
+
+Local and interactive dashboards progressively run visible cards in layout order, two at a time, so the first row can render before lower rows finish querying.
 
 ### Choices
 
