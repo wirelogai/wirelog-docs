@@ -143,7 +143,7 @@ wl dashboard save --file dashboard.yaml --output - --mode report
 - `report`: fixed data, no token embedded. Prefer for sharing.
 - `interactive`: browser can re-query; requires a query-scoped `aat_` token. Team members should use a personal query token. Never embed `sk_`, `pk_`, or `ak_`.
 - `view --file <dir>` renders a sidebar for `.yaml`/`.yml` dashboards.
-- `sync --file <path>` validates and versions one file or a directory in the credential's project. Use a stable root `id`; `--visibility personal|project` explicitly changes access, while omission preserves an existing dashboard's visibility. Synced dashboards appear in the authenticated project's primary dashboard workspace and persistent sidebar. Sync creates no public or standalone URL.
+- `sync --file <path>` validates and versions one file or a directory in the credential's project. Use a stable root `id`; `--visibility personal|project` explicitly changes access, while omission preserves an existing dashboard's visibility. Synced dashboards appear in the authenticated dashboard workspace and its title-adjacent switcher. Sync creates no public or standalone URL.
 - Directory dashboards have stable local routes like `/dashboard/usage.yaml`; extensionless routes like `/dashboard/usage` work when unambiguous.
 - Root `order: 10` controls sidebar order; leave gaps like `10`, `20`, `30`.
 - Root `timezone: UTC` controls display timezone; use the user's preferred IANA timezone when known.
