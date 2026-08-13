@@ -37,7 +37,7 @@ Each dashboard also has a stable local route, such as `/dashboard/usage.yaml`; e
 - Add a stable root `id`, for example `product-growth`; one-file sync may use `--id`, and legacy files fall back to the filename.
 - Personal `aat_` tokens need `dashboards` scope and default new dashboards to personal visibility. `--visibility project` shares the dashboard with current project members. Later syncs preserve visibility unless the flag is explicit. `sk_` can sync project-visible dashboards; `pk_` and `ak_` cannot sync.
 - The server independently validates strict YAML, stores the newest 100 immutable content versions, and reuses the current version when canonical content is unchanged.
-- Synced dashboards render inline on `/project/{projectID}` after login. Browser queries remain session-authenticated and bound to that authorized project.
+- `/project/{projectID}` is the authenticated project's dashboard workspace. Synced dashboards appear in the persistent project sidebar; Explore, Setup, and Settings are separate project destinations. Browser queries remain session-authenticated and bound to that authorized project.
 - Project-visible dashboard IDs are unique per project. Personal IDs are unique per owner, so two users may keep private dashboards with the same source ID. Owners can update their own dashboard; admins/owners may update shared dashboards.
 
 ## Export modes
