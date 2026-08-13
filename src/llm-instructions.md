@@ -9,10 +9,10 @@ Alternative to PostHog, Amplitude, and Mixpanel designed for AI agents. Track ev
 | Prefix | Name | Permissions | Where to use |
 |--------|------|-------------|--------------|
 | `pk_` | Public | Track only | Client-side (browsers, mobile, agents) |
-| `sk_` | Secret | Track + query + identify + admin | Server-side only — never expose |
-| `aat_` | Access token | Scoped track/query/admin access, time-limited | Personal CLI/dashboard tokens, agents, integrations |
+| `sk_` | Secret | Track + query + identify + admin + dashboards | Server-side only — never expose |
+| `aat_` | Access token | Scoped track/query/admin/dashboard access, time-limited | Personal CLI/dashboard tokens, agents, integrations |
 
-Auth: send as `X-API-Key` header or `?key=` query param.
+Auth: send keys as `X-API-Key`. Only public `pk_` tracking keys may use `?key=`.
 
 ---
 
@@ -123,7 +123,7 @@ Auto-detects TTY: styled tables for humans, `--json` for agents. For multiple in
 
 ### Dashboard YAML
 
-Dashboards are agent-authored YAML files for related WireLog queries. They can be validated, run as data, viewed locally, or exported as HTML.
+Dashboards are agent-authored YAML files for related WireLog queries. They can be validated, run as data, viewed locally, exported as HTML, or synced into the authenticated project page.
 
 ```bash
 wl dashboard schema --output -
@@ -134,6 +134,8 @@ wl dashboard run --file dashboard.yaml --json
 wl dashboard run --file dashboard.yaml --var range=7d --format markdown
 wl dashboard view --file dashboard.yaml --open
 wl dashboard view --file ./dashboards
+wl dashboard sync --file dashboard.yaml
+wl dashboard sync --file ./dashboards --visibility project
 wl dashboard save --file dashboard.yaml --output index.html --mode report
 wl dashboard save --file dashboard.yaml --output - --mode report
 ```
@@ -141,6 +143,7 @@ wl dashboard save --file dashboard.yaml --output - --mode report
 - `report`: fixed data, no token embedded. Prefer for sharing.
 - `interactive`: browser can re-query; requires a query-scoped `aat_` token. Team members should use a personal query token. Never embed `sk_`, `pk_`, or `ak_`.
 - `view --file <dir>` renders a sidebar for `.yaml`/`.yml` dashboards.
+- `sync --file <path>` validates and versions one file or a directory in the credential's project. Use a stable root `id`; `--visibility personal|project` explicitly changes access, while omission preserves an existing dashboard's visibility. Sync creates no public or standalone URL.
 - Directory dashboards have stable local routes like `/dashboard/usage.yaml`; extensionless routes like `/dashboard/usage` work when unambiguous.
 - Root `order: 10` controls sidebar order; leave gaps like `10`, `20`, `30`.
 - Root `timezone: UTC` controls display timezone; use the user's preferred IANA timezone when known.
@@ -166,7 +169,7 @@ Every dashboard gets a built-in `range` date-range control unless it defines `va
 
 For chart cards, set `options.x`, `options.y`, and `options.series` when a result has multiple plausible columns. Time bucket charts render chronologically and align multi-series buckets; missing bucket values display as gaps. Line and area charts keep the active bucket live, draw its final segment as dashed, and mark its tooltip `partial`.
 
-Local and interactive dashboards progressively load visible cards in layout order. They coalesce up to eight cards into one request, deduplicate identical rendered queries across the batch, and run at most eight query jobs concurrently. Cards entering the viewport settle for 400 ms. Query rate limits are surfaced immediately instead of being retried invisibly.
+Local dashboards start the first two visible cards immediately, then start the next card in layout order whenever one finishes. Each card paints independently. The local server caps the whole dashboard at four active ClickHouse queries; identical in-flight queries are coalesced and recent results use a short, refresh-aware cache. Manual refresh bypasses older cached results while preserving deduplication within that refresh. Interactive exports retain bounded multi-card requests, and synced project dashboards load two cards at a time in visual order. Cards entering the viewport settle for 400 ms. Query rate limits are surfaced immediately instead of being retried invisibly.
 
 ### Choices
 
@@ -196,6 +199,7 @@ Minimal dashboard:
 
 ```yaml
 version: 1
+id: product-growth
 title: Product Growth
 order: 10
 refresh: 60s

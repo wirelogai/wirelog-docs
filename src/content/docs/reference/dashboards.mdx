@@ -1,9 +1,9 @@
 ---
 title: "Dashboards"
-description: "Agent-authored YAML dashboards for local viewing and static HTML exports."
+description: "Agent-authored YAML dashboards for local viewing, export, and authenticated project sync."
 ---
 
-Dashboards are CLI tooling. They are YAML files of WireLog queries rendered locally or exported as HTML. WireLog remains headless and API-first.
+Dashboards are source-controlled YAML files of WireLog queries. Render them locally, export HTML, or sync validated versions into the authenticated project page. WireLog remains query-first: there is no visual builder, public dashboard URL, embed, or anonymous sharing.
 
 ## Commands
 
@@ -17,6 +17,9 @@ wl dashboard run --file dashboard.yaml --json
 wl dashboard run --file dashboard.yaml --var range=7d --format markdown
 wl dashboard view --file dashboard.yaml --open
 wl dashboard view --file ./dashboards
+wl dashboard sync --file dashboard.yaml
+wl dashboard sync --file ./dashboards --visibility project
+wl dashboard sync --file dashboard.yaml --host https://wirelog.example.com
 wl dashboard save --file dashboard.yaml --output index.html --mode report
 wl dashboard save --file dashboard.yaml --output - --mode report
 wl dashboard save --file dashboard.yaml --output index.html --mode interactive --token-env WIRELOG_DASHBOARD_TOKEN
@@ -26,6 +29,16 @@ wl dashboard save --file dashboard.yaml --output index.html --mode interactive -
 
 `wl dashboard view --file <dir>` discovers `.yaml` and `.yml` dashboards under that directory and renders a sidebar for switching dashboards.
 Each dashboard also has a stable local route, such as `/dashboard/usage.yaml`; extensionless routes like `/dashboard/usage` work when unambiguous.
+
+## Sync into a project
+
+`wl dashboard sync` sends one dashboard or a directory to the project bound to the current API credential. It never accepts a project ID.
+
+- Add a stable root `id`, for example `product-growth`; one-file sync may use `--id`, and legacy files fall back to the filename.
+- Personal `aat_` tokens need `dashboards` scope and default new dashboards to personal visibility. `--visibility project` shares the dashboard with current project members. Later syncs preserve visibility unless the flag is explicit. `sk_` can sync project-visible dashboards; `pk_` and `ak_` cannot sync.
+- The server independently validates strict YAML, stores the newest 100 immutable content versions, and reuses the current version when canonical content is unchanged.
+- Synced dashboards render inline on `/project/{projectID}` after login. Browser queries remain session-authenticated and bound to that authorized project.
+- Project-visible dashboard IDs are unique per project. Personal IDs are unique per owner, so two users may keep private dashboards with the same source ID. Owners can update their own dashboard; admins/owners may update shared dashboards.
 
 ## Export modes
 
@@ -54,6 +67,7 @@ When written to a file, interactive exports use `0600` permissions because the H
 
 ```yaml
 version: 1
+id: product-growth
 title: Product Growth
 order: 10
 refresh: 60s
@@ -212,7 +226,7 @@ query: 'page_view {{range.stage}} | count by day, _browser | top 50'
 
 Line, area, and bar charts render time bucket columns (`hour`, `day`, `week`, `month`, date/time fields) on chronological axes. Multi-series time charts are aligned to one shared bucket domain; missing buckets render as gaps instead of lines connecting across absent data. Line and area charts keep the active time bucket live, draw the final segment as dashed, and mark its tooltip `partial` so current data stays visible without implying a complete-period comparison. For grouped time queries, set `options.x`, `options.y`, and `options.series` explicitly when the result has more than one non-metric column.
 
-Local and interactive dashboards progressively load visible cards in layout order. They coalesce up to eight cards into one request, deduplicate identical rendered queries across the batch, and run at most eight query jobs concurrently. Cards entering the viewport settle for 400 ms. Query rate limits are surfaced immediately instead of being hidden behind automatic retry sleeps.
+Local dashboards start the first two visible cards immediately, then start the next card in layout order whenever one finishes. Each card paints independently. The local server caps the whole dashboard at four active ClickHouse queries, coalesces identical in-flight queries, and keeps a short, refresh-aware result cache. Manual refresh bypasses older cached results while preserving deduplication within that refresh. Interactive exports retain bounded multi-card requests, and synced project dashboards load two cards at a time in visual order. Cards entering the viewport settle for 400 ms. Query rate limits are surfaced immediately instead of being hidden behind automatic retry sleeps.
 
 Dashboard-side ratios divide the first query by the second query:
 

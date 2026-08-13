@@ -3,7 +3,7 @@ title: "API Reference"
 description: "Complete HTTP API reference for WireLog."
 ---
 
-All requests and responses are JSON unless noted. Authentication via `X-API-Key` header or `key` query parameter (API keys) or `wl_session` cookie (session auth).
+All requests and responses are JSON unless noted. API keys use `X-API-Key`; only public `pk_` tracking keys may use the `key` query parameter. Browser project APIs use the `wl_session` cookie.
 
 ## Public Endpoints
 
@@ -137,9 +137,28 @@ Mode-specific metadata is additive and optional. Funnel JSON responses include:
 
 ---
 
+### PUT /api/dashboard-sync/\{dashboardKey\}
+
+Sync validated dashboard YAML into the API credential's project. The route accepts no project ID; tenant scope comes only from the authenticated key.
+
+Omitted visibility defaults from the credential only when creating a dashboard. Re-sync preserves existing visibility unless `personal` or `project` is sent explicitly.
+
+**Auth:** `sk_` or `aat_` with `dashboards` scope. `pk_` and `ak_` are rejected.
+
+```json
+{
+  "source_yaml": "version: 1\nid: product-growth\ntitle: Product Growth\n...",
+  "visibility": "personal"
+}
+```
+
+The server strictly validates YAML and stores immutable content versions. The response includes `changed` for a new version and `metadata_changed` for a visibility-only update.
+
+---
+
 ## Session-Authenticated API
 
-All `/api/*` routes require the `wl_session` cookie (set by GitHub OAuth login).
+Session routes require the `wl_session` cookie (set by GitHub OAuth login). Missing sessions return JSON `401`, and unsafe cross-origin session requests are denied.
 
 ### Organizations
 
@@ -153,7 +172,7 @@ All `/api/*` routes require the `wl_session` cookie (set by GitHub OAuth login).
 
 **GET /api/orgs/\{orgID\}** -- Get org details.
 
-**POST /api/orgs/\{orgID\}/rotate-admin-key** -- Rotate the org admin key (`ak_`).
+**POST /api/orgs/\{orgID\}/rotate-admin-key** -- Owner only. Rotate the org admin key (`ak_`).
 
 ```json
 {"admin_key": "ak_..."}
@@ -161,21 +180,43 @@ All `/api/*` routes require the `wl_session` cookie (set by GitHub OAuth login).
 
 ---
 
+### Members, Invitations, and Domains
+
+Owners can manage team access:
+
+- `GET /api/orgs/{orgID}/members`
+- `PATCH /api/orgs/{orgID}/members/{userID}` with `{"role":"owner|admin|member"}`
+- `DELETE /api/orgs/{orgID}/members/{userID}`
+- `POST /api/orgs/{orgID}/invitations` with `{"email":"person@example.com","role":"member|admin"}`
+- `POST /api/invitations/{token}/accept`
+- `POST /api/orgs/{orgID}/domains` with `{"domain":"example.com"}`
+- `POST /api/orgs/{orgID}/domains/{domainID}/verify`
+
+Domain verification expects TXT `_wirelog-verify.<domain>` with value `wirelog-verification=<token>`.
+
+---
+
 ### Projects
 
 **GET /api/orgs/\{orgID\}/projects** -- List org projects.
 
-**POST /api/orgs/\{orgID\}/projects** -- Create project.
+**POST /api/orgs/\{orgID\}/projects** -- Admin/owner. Create project.
 
 ```json
 {"name": "My App"}
 ```
 
-Returns project with `public_key` (`pk_`) and `secret_key` (`sk_`).
+Returns project with `public_key` (`pk_`). `secret_key` (`sk_`) is omitted for members.
 
-**GET /api/projects/\{projectID\}** -- Get project (includes keys).
+**GET /api/projects/\{projectID\}** -- Get project. Includes role/capabilities; `secret_key` is omitted for members.
 
-**DELETE /api/projects/\{projectID\}** -- Delete project permanently.
+**POST /api/projects/\{projectID\}/query** -- Session-authenticated query route for members/admins/owners.
+
+**GET /api/projects/\{projectID\}/dashboards** -- List shared dashboards plus the current user's personal dashboards.
+
+**GET /api/projects/\{projectID\}/dashboards/\{dashboardID\}** -- Get one visible dashboard's validated current config.
+
+**DELETE /api/projects/\{projectID\}** -- Owner only. Delete project permanently.
 
 ```json
 {
@@ -186,7 +227,7 @@ Returns project with `public_key` (`pk_`) and `secret_key` (`sk_`).
 
 Both fields must match exactly. Deletes project and all associated data.
 
-**POST /api/projects/\{projectID\}/rotate-secret-key** -- Rotate `sk_` key. Public key unchanged.
+**POST /api/projects/\{projectID\}/rotate-secret-key** -- Admin/owner. Rotate `sk_` key. Public key unchanged.
 
 ---
 
@@ -196,17 +237,22 @@ Both fields must match exactly. Deletes project and all associated data.
 
 ```json
 {
-  "name": "ci-pipeline",
-  "scopes": ["track", "query"],
+  "name": "cli-dashboard",
+  "kind": "personal",
+  "scopes": ["query", "dashboards"],
   "expires_in": "720h"
 }
 ```
 
-Returns the raw token once. It cannot be retrieved again.
+Members can create personal tokens with `query` and/or `dashboards`. Admins/owners can create service tokens; owner role is required for `admin` scope. Returns the raw token once. It cannot be retrieved again.
 
-**GET /api/projects/\{projectID\}/tokens** -- List tokens (prefix only).
+**GET /api/projects/\{projectID\}/tokens** -- Members see their own token metadata. Admins/owners see project token metadata.
 
-**DELETE /api/projects/\{projectID\}/tokens/\{tokenID\}** -- Revoke token.
+**DELETE /api/projects/\{projectID\}/tokens/\{tokenID\}** -- Revoke own token, or any project token as admin/owner.
+
+**GET /api/me/tokens** -- List your personal tokens.
+
+**DELETE /api/me/tokens/\{tokenID\}** -- Revoke your personal token.
 
 ---
 
