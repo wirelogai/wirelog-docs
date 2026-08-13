@@ -59,7 +59,7 @@ Use `wl dashboard run` to execute every query and print data without opening a b
 
 Use `wl dashboard view --file ./dashboards` to render a sidebar for all dashboard files in a directory. Root-level `order: 10` controls sidebar order. Local dashboard routes use `/dashboard/<id>`, such as `/dashboard/usage.yaml`; extensionless routes work when unambiguous.
 
-Use `wl dashboard sync --file dashboard.yaml` to store a validated version in the API credential's project. Synced dashboards appear in the authenticated dashboard workspace and its title-adjacent switcher. Add root `id`, use `--visibility personal|project`, and use the global `--host` flag for self-hosting. Sync creates no standalone or public URL.
+Use `wl dashboard sync --file dashboard.yaml` to store a validated version in the API credential's project. The authenticated workspace switcher includes every project-visible dashboard plus your own personal dashboards. Add root `id`, use `--visibility personal|project`, and use `wl dashboard sync --file ./dashboards --visibility project` when teammates should see every dashboard in a directory. Use the global `--host` flag for self-hosting. Sync creates no standalone or public URL. Projects without a visible dashboard show the starter, preview, and sync workflow in place.
 
 Use `--mode interactive` only with a query-scoped `aat_` token. Team members should use their own personal query token:
 

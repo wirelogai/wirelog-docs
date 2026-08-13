@@ -39,6 +39,8 @@ Each dashboard also has a stable local route, such as `/dashboard/usage.yaml`; e
 - The server independently validates strict YAML, stores the newest 100 immutable content versions, and reuses the current version when canonical content is unchanged.
 - `/project/{projectID}` is an authenticated entry route: projects without stored events go to Setup, while active projects go to `/project/{projectID}/dashboards`.
 - Synced dashboards appear in a title-adjacent switcher inside the dashboard workspace. The persistent sidebar keeps only Dashboards, Explore, Setup, and Settings. Browser queries remain session-authenticated and bound to that authorized project.
+- The switcher includes every project-visible dashboard plus your own personal dashboards. Use `wl dashboard sync --file ./dashboards --visibility project` when teammates should see every dashboard in a directory.
+- Projects without a visible dashboard show the starter, preview, and sync workflow with links to this guide, the CLI reference, and personal CLI token settings.
 - Project-visible dashboard IDs are unique per project. Personal IDs are unique per owner, so two users may keep private dashboards with the same source ID. Owners can update their own dashboard; admins/owners may update shared dashboards.
 
 ## Export modes
