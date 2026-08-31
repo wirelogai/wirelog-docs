@@ -48,6 +48,24 @@ wirelog.New(wirelog.Config{...})
 | `HTTPTimeout` | `time.Duration` | `30s` | Per-request HTTP timeout |
 | `OnError` | `func(error)` | `nil` | Background error callback (must be goroutine-safe) |
 | `Disabled` | `bool` | `false` | Disables tracking. Query/Identify still work |
+| `RateLimit` | `wirelog.RateLimitConfig` | Backend profile | Per-instance burst, sustained, and payload limits; see below |
+
+The Go SDK assumes one process may aggregate an application's backend traffic.
+Its zero-value `RateLimit` defaults match WireLog's standard project ingestion
+envelope:
+
+| Limit | Default |
+|---|---:|
+| Events/second | `200` |
+| Burst | `2000` |
+| Events/minute | `10000` |
+| Events/hour | `500000` |
+| Events/rolling 24h | `10000000` |
+| Event payload | `65536` bytes |
+
+Configure smaller values for a narrowly scoped producer. Set
+`RateLimit.Disabled: true` only when another trusted layer provides flood and
+payload protection.
 
 ---
 
@@ -177,8 +195,13 @@ type Event struct {
 - Flush triggers: batch reaches `BatchSize` (default 10) or `FlushInterval` elapses (default 2s)
 - Transient failures (429, 5xx) are retried with exponential backoff (up to 3 retries)
 - Permanent failures (4xx) are reported to `OnError` and not retried
+- Rate-limit and payload rejections are reported to `OnError`; inspect cumulative rate-limit drops with `RateLimitStats()`
 - Queue overflow: newest events are dropped; `ErrQueueFull` is reported to `OnError`
 - The background worker recovers from panics
+
+`Track()` is deliberately non-blocking and memory-bounded, so it does not offer
+durable delivery. Applications that cannot tolerate telemetry loss must monitor
+`OnError` outside WireLog and retain the source-of-truth record separately.
 
 ---
 
@@ -216,6 +239,8 @@ client := wirelog.New(wirelog.Config{
 |---|---|
 | `wirelog.ErrClosed` | Operation attempted on a closed client |
 | `wirelog.ErrQueueFull` | Event dropped because the queue is at capacity |
+| `wirelog.ErrRateLimited` | Event dropped by a configured burst or sustained limit |
+| `wirelog.ErrPayloadTooLarge` | Event dropped because it exceeded `MaxEventBytes` |
 
 ---
 
